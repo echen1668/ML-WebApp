@@ -407,6 +407,9 @@ def plot_averoc_curve(y_true, y_pred, tp=None, fp=None, color='#FFA500',linestyl
             this_pred = y_pred[k]#[:,1]
             
             #st.write(this_true)
+            #st.write(type(this_true), this_true.shape)
+            #st.write(this_pred)
+            #st.write(type(this_pred), this_pred.shape)
             auc_value = roc_auc_score(this_true, this_pred)
             if auc_value < 0.5:
                 #this_pred = 1-this_pred

@@ -207,6 +207,11 @@ exp_name = st.text_input("Enter Name of the ML Experiment", "exp_name")
 # Test Set
 test_set = st.radio("Do you have a seperate test set(s):", ["Yes", "No"])
 
+if test_set=="No":
+    cross_validation = st.radio("Are you using Cross Validation?:", ["Yes", "No"])
+else:
+    cross_validation = "No"
+
 # Number input
 num_models = st.number_input("Enter the number of models:", min_value=1, max_value=100, value=5)
 
@@ -226,6 +231,6 @@ st.write()
 
 # back button to return to Training_Native_Models.py
 if st.button('Back'):
-    path_back = "pages/Training_Native_Models_W_TS.py" if test_set=="Yes" else "pages/Training_Native_Models_WO_TS.py"
+    path_back = "pages/Training_Native_Models_W_TS.py" if test_set=="Yes" else ("pages/Training_Native_Models_WO_TS.py" if cross_validation=="No" else "pages/Training_Native_Models_CV.py")
     st.switch_page(path_back)  # Redirect to the Training_Native_Models.py
 
