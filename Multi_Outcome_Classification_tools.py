@@ -2284,8 +2284,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         roc_train_filename = os.path.join(project_folder, experiment_name, algorithm, sanitize_label_col, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
         roc_test_filename = os.path.join(project_folder, experiment_name, algorithm, sanitize_label_col, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
         #st.write(roc_train_filename)
-        results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list, dtype=object), np.array(probas_train_list, dtype=object), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
-        results_array_test, image_roc_test = plot_averoc_curve(np.array(ground_truth_test_list, dtype=object), np.array(probas_test_list, dtype=object), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Test Set)", fig_name=roc_test_filename)
+        results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list), np.array(probas_train_list), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
+        results_array_test, image_roc_test = plot_averoc_curve(np.array(ground_truth_test_list), np.array(probas_test_list), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Test Set)", fig_name=roc_test_filename)
         
         algo_dictonary[label_col] = {}
 
