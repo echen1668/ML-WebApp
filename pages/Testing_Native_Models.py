@@ -61,7 +61,7 @@ def sanitize_filename(filename):
     return filename
 
 # testing models function
-def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_data, project_name, cutoff_index='youden'):
+def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_data, project_name, test_set_name, cutoff_index='youden'):
     results_dictonary = {}
     
     for algo_name in all_algorithms:
@@ -71,205 +71,210 @@ def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_da
         
         for o_name in all_outcomes:
             outcome_dic = model_dic[algo_name][o_name]
-            algorithm_folder = os.path.join("Results", project_name, f'{algo_name} (results)', o_name)
+            algorithm_folder = os.path.join("Results", project_name, test_set_name, f'{algo_name} (results)', o_name)
             os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
                 
             metric_dic = {} # dictionary containg all important metrics
-                
-            print(o_name)
-            keys_list = list(outcome_dic.keys())
-            #st.write(keys_list)
-            model = outcome_dic['Model']
-            features = outcome_dic['Features']
-            #imputer = outcome_dic['Imputer']
-            #scaler = outcome_dic['Scaler']
-            #normalizer = outcome_dic['Normalizer']
-            outcome_name = outcome_dic['Outcome Name']
-            df_res_train = outcome_dic['Train Set Res']
-            df_array_res_train = outcome_dic['Train Set Res Array']
-            print("  Model: ", model)
-            print("  Features: ", features)
-            #print("  Imputer: ", imputer)
-            #print("  Scaler: ", scaler)
-            #print("  Normalizer: ", normalizer)
-            st.write("  Outcome Name: ", outcome_name)
-            print("  Res Train Table: ", df_res_train)
-            print()
-            if model == 'N/A' :
-                continue
-            
-            #Seperate the inputs and outputs for test data
-            #X_train, y_train = train_X, train_y[outcome_name]
-            
-            numeric_columns = outcome_dic['Numeric Columns']
-            categorical_columns = outcome_dic['Categorical Columns']
-            
-            input_columns = input_cols_dic[algo_name]
-            print(input_columns)
-            
-                
-            #Seperate the inputs and outputs for test data
-            try:
-                X_test, y_test = split(test_data, input_columns, outcome_name)
-            except:
-                st.write("Input Columns do not match with data set.")
-                continue
-            #X_test, y_test = split(test_data, features, outcome_name)
-            X_col = X_test.columns.to_list()
-                
-            # Class label values
-            classes = y_test.unique()
 
-            print("Classes: ", classes)
-            
-            # Count positives and negatives
-            positives = np.sum(y_test == 1)  # Count instances of 1
-            negatives = np.sum(y_test == 0)  # Count instances of 0
-            
-            print("Postive Count (on training set):", positives)
-            print("Negative Count (on training set):", negatives)
-                
-            # Imputing Data
-            if 'Imputer' in keys_list:
-                print("Impute")
-                imputer = outcome_dic['Imputer']
-                X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col)
-                y_test.reset_index(drop=True, inplace=True)
-    
-            # Scaling Data
-            if 'Scaler' in keys_list:
-                print("Scaling")
-                scaler = outcome_dic['Scaler']
-                X_test[numeric_columns] = scaler.transform(X_test[numeric_columns])
-                y_test.reset_index(drop=True, inplace=True)
+            with st.spinner(f"Uploading Model for {algo_name} on {o_name}..."):
 
-            # Normalize the data
-            if 'Normalizer' in keys_list:
-                print("Normalize")
-                normalizer = outcome_dic['Normalizer']
-                X_test[numeric_columns] = normalizer.transform(X_test[numeric_columns])
-                y_test.reset_index(drop=True, inplace=True)
+                print(o_name)
+                keys_list = list(outcome_dic.keys())
+                #st.write(keys_list)
+                model = outcome_dic['Model']
+                features = outcome_dic['Features']
+                #imputer = outcome_dic['Imputer']
+                #scaler = outcome_dic['Scaler']
+                #normalizer = outcome_dic['Normalizer']
+                outcome_name = outcome_dic['Outcome Name']
+                df_res_train = outcome_dic['Train Set Res']
+                df_array_res_train = outcome_dic['Train Set Res Array']
+                print("  Model: ", model)
+                print("  Features: ", features)
+                #print("  Imputer: ", imputer)
+                #print("  Scaler: ", scaler)
+                #print("  Normalizer: ", normalizer)
+                st.write("  Outcome Name: ", outcome_name)
+                print("  Res Train Table: ", df_res_train)
+                print()
+                if model == 'N/A' :
+                    continue
+                
+                #Seperate the inputs and outputs for test data
+                #X_train, y_train = train_X, train_y[outcome_name]
+                
+                numeric_columns = outcome_dic['Numeric Columns']
+                categorical_columns = outcome_dic['Categorical Columns']
+                
+                input_columns = input_cols_dic[algo_name]
+                print(input_columns)
+                
+                    
+                #Seperate the inputs and outputs for test data
+                try:
+                    X_test, y_test = split(test_data, input_columns, outcome_name)
+                except:
+                    st.write("Input Columns do not match with data set.")
+                    continue
+                #X_test, y_test = split(test_data, features, outcome_name)
+                X_col = X_test.columns.to_list()
+                    
+                # Class label values
+                classes = y_test.unique()
+
+                print("Classes: ", classes)
+                
+                # Count positives and negatives
+                positives = np.sum(y_test == 1)  # Count instances of 1
+                negatives = np.sum(y_test == 0)  # Count instances of 0
+                
+                print("Postive Count (on training set):", positives)
+                print("Negative Count (on training set):", negatives)
+                    
+                # Imputing Data
+                if 'Imputer' in keys_list:
+                    print("Impute")
+                    imputer = outcome_dic['Imputer']
+                    X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col)
+                    y_test.reset_index(drop=True, inplace=True)
+        
+                # Scaling Data
+                if 'Scaler' in keys_list:
+                    print("Scaling")
+                    scaler = outcome_dic['Scaler']
+                    X_test[numeric_columns] = scaler.transform(X_test[numeric_columns])
+                    y_test.reset_index(drop=True, inplace=True)
+
+                # Normalize the data
+                if 'Normalizer' in keys_list:
+                    print("Normalize")
+                    normalizer = outcome_dic['Normalizer']
+                    X_test[numeric_columns] = normalizer.transform(X_test[numeric_columns])
+                    y_test.reset_index(drop=True, inplace=True)
 
             #print(X_test)
             #print(y_test)
             
-            st.write('Testing Started...')
+            #st.write('Testing Started...')
+            with st.spinner(f"Testing Model for {algo_name} on {o_name}..."):
 
-            probas_test = model.predict_proba(X_test[features]) # get probablities with test set
-            #model.predict(X_test[features]) # predict with test set
-            
-            # create a states able for metric on the test set
-            res, res_array = full_roc_curve(y_test, probas_test[:, 1], index=cutoff_index)
-            print("Results Array (Test Set): ", res)
+                probas_test = model.predict_proba(X_test[features]) # get probablities with test set
+                #model.predict(X_test[features]) # predict with test set
+                
+                # create a states able for metric on the test set
+                res, res_array = full_roc_curve(y_test, probas_test[:, 1], index=cutoff_index)
+                print("Results Array (Test Set): ", res)
 
-            metric_dic['TPR'] = res['tpr']
-            metric_dic['TNR'] = res['tnr']
-            metric_dic['FPR'] = res['fpr']
-            metric_dic['FNR'] = res['fnr']
-            metric_dic['PPV'] = res['ppv']
-            metric_dic['NPV'] = res['npv']
-            
-            metric_dic['AUROC Score'] = res['auc']
-            metric_dic['AUROC CI Low'] = res['auc_cilow']
-            metric_dic['AUROC CI High'] = res['auc_cihigh']
-            metric_dic['cutoff type'] = cutoff_index
-            metric_dic['cutoff'] = (res['cutoff_mcc'] if cutoff_index=='mcc' else (res['cutoff_ji'] if cutoff_index=='ji' else (res['cutoff_f1'] if cutoff_index=='f1' else res['cutoff_youden']))).astype(float)
-            
-            print("Cutoff Index: ", metric_dic['cutoff'])
+                metric_dic['TPR'] = res['tpr']
+                metric_dic['TNR'] = res['tnr']
+                metric_dic['FPR'] = res['fpr']
+                metric_dic['FNR'] = res['fnr']
+                metric_dic['PPV'] = res['ppv']
+                metric_dic['NPV'] = res['npv']
+                
+                metric_dic['AUROC Score'] = res['auc']
+                metric_dic['AUROC CI Low'] = res['auc_cilow']
+                metric_dic['AUROC CI High'] = res['auc_cihigh']
+                metric_dic['cutoff type'] = cutoff_index
+                metric_dic['cutoff'] = (res['cutoff_mcc'] if cutoff_index=='mcc' else (res['cutoff_ji'] if cutoff_index=='ji' else (res['cutoff_f1'] if cutoff_index=='f1' else res['cutoff_youden']))).astype(float)
+                
+                print("Cutoff Index: ", metric_dic['cutoff'])
 
-            #st.write(probas_test[:, 1])
-            predictions_test = [1 if p >= metric_dic['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
-            test_acc = accuracy_score(y_test, predictions_test) # test accuracy
-            print("Test Accuracy:", (test_acc * 100))
-            metric_dic['Accuracy'] = test_acc
-            
-            # training set results
-            metric_dic['AUROC Score (Train)'] = df_res_train['auc']
-            metric_dic['AUROC CI Low (Train)'] = df_res_train['auc_cilow']
-            metric_dic['AUROC CI High (Train)'] = df_res_train['auc_cihigh']
-            metric_dic['P (Train)'] = df_res_train['P'].astype(float)
-            metric_dic['N (Train)'] = df_res_train['N'].astype(float)
-            
-            # Extract TP, FP, TN, FN
-            metric_dic['TP'] = res['TP']
-            metric_dic['FP'] = res['FP']
-            metric_dic['TN'] = res['TN']
-            metric_dic['FN'] = res['FN']
-            
-            metric_dic['P'] = res['P'].astype(float)
-            metric_dic['N'] = res['N'].astype(float)
-            
-            metric_dic['precision'] = res['precision']
-            metric_dic['recall'] = res['recall']
-            
-            metric_dic['Ground Truths'] = y_test.to_list()
-            metric_dic['Predictions'] = predictions_test
-            metric_dic['Probability Scores'] = probas_test.tolist()
-            
-            print(metric_dic)
+                #st.write(probas_test[:, 1])
+                predictions_test = [1 if p >= metric_dic['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
+                test_acc = accuracy_score(y_test, predictions_test) # test accuracy
+                print("Test Accuracy:", (test_acc * 100))
+                metric_dic['Accuracy'] = test_acc
+                
+                # training set results
+                metric_dic['AUROC Score (Train)'] = df_res_train['auc']
+                metric_dic['AUROC CI Low (Train)'] = df_res_train['auc_cilow']
+                metric_dic['AUROC CI High (Train)'] = df_res_train['auc_cihigh']
+                metric_dic['P (Train)'] = df_res_train['P'].astype(float)
+                metric_dic['N (Train)'] = df_res_train['N'].astype(float)
+                
+                # Extract TP, FP, TN, FN
+                metric_dic['TP'] = res['TP']
+                metric_dic['FP'] = res['FP']
+                metric_dic['TN'] = res['TN']
+                metric_dic['FN'] = res['FN']
+                
+                metric_dic['P'] = res['P'].astype(float)
+                metric_dic['N'] = res['N'].astype(float)
+                
+                metric_dic['precision'] = res['precision']
+                metric_dic['recall'] = res['recall']
+                
+                metric_dic['Ground Truths'] = y_test.to_list()
+                metric_dic['Predictions'] = predictions_test
+                metric_dic['Probability Scores'] = probas_test.tolist()
+                
+                print(metric_dic)
 
-            st.write('Testing Complete!')
-            
-            st.write('Results Saving...')
-            # plot the ROC Curves
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # calcaute the AUROC
-            fpr, tpr, _ = roc_curve(y_test, probas_test[:, 1])
-            roc_auc = res['auc']
-            auc_ci_low = res['auc_cilow']
-            auc_ci_high = res['auc_cihigh']
-            specificity = res_array['tnr']
-            ax.plot(fpr, tpr, label=f'{outcome_name} (AUC = {roc_auc:.4f} [{auc_ci_low:.4f}, {auc_ci_high:.4f}])', linewidth=2)
-            
-            # get the CI
-            ax.fill_between(1-specificity, res_array['tpr_low'], res_array['tpr_high'], alpha=.2)
-            
-            ax.plot([0, 1], [0, 1], 'k--')  # Diagonal line for reference
-            ax.set_xlabel("False Positive Rate", fontsize=14)
-            ax.set_ylabel("True Positive Rate", fontsize=14)
-            ax.set_title(f"ROC Curve for {outcome_name} on {algo_name}", fontsize=16)
-            ax.legend(loc="lower right", fontsize=14)
-            
-            # save the ROC plot
-            filename_roc = os.path.join(algorithm_folder, algo_name + "_" + sanitize_filename(outcome_name) + "_roc.png")
-            plt.savefig(filename_roc,dpi=700)
-            plt.show()  # Display the plot
-            plt.close()
-            
-            # plot the SHAP Values
-            plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
-            explainer = shap.Explainer(model.predict, X_test[features])
-            #shap_values = explainer.shap_values(X_test[features])
-            shap_values = explainer(X_test[features])
-            
-            try:
-                shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = 10, show=False) 
-            except:
-                shap.summary_plot(shap_values, X_test[features], plot_type='dot', show=False)
-            
-            fig = plt.gcf()  # Get current figure
+            #st.write('Testing Complete!')
+            with st.spinner(f"Testing on Data Done. Now saving ROC and SHAP charts for {algo_name} on {o_name}..."):
+                #st.write('Results Saving...')
+                # plot the ROC Curves
+                fig, ax = plt.subplots(figsize=(12, 8))
+                
+                # calcaute the AUROC
+                fpr, tpr, _ = roc_curve(y_test, probas_test[:, 1])
+                roc_auc = res['auc']
+                auc_ci_low = res['auc_cilow']
+                auc_ci_high = res['auc_cihigh']
+                specificity = res_array['tnr']
+                ax.plot(fpr, tpr, label=f'{outcome_name} (AUC = {roc_auc:.4f} [{auc_ci_low:.4f}, {auc_ci_high:.4f}])', linewidth=2)
+                
+                # get the CI
+                ax.fill_between(1-specificity, res_array['tpr_low'], res_array['tpr_high'], alpha=.2)
+                
+                ax.plot([0, 1], [0, 1], 'k--')  # Diagonal line for reference
+                ax.set_xlabel("False Positive Rate", fontsize=14)
+                ax.set_ylabel("True Positive Rate", fontsize=14)
+                ax.set_title(f"ROC Curve for {outcome_name} on {algo_name}", fontsize=16)
+                ax.legend(loc="lower right", fontsize=14)
+                
+                # save the ROC plot
+                filename_roc = os.path.join(algorithm_folder, algo_name + "_" + sanitize_filename(outcome_name) + "_roc.png")
+                plt.savefig(filename_roc,dpi=700)
+                plt.show()  # Display the plot
+                plt.close()
+                
+                # plot the SHAP Values
+                plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
+                explainer = shap.Explainer(model.predict, X_test[features])
+                #shap_values = explainer.shap_values(X_test[features])
+                shap_values = explainer(X_test[features])
+                
+                try:
+                    shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = 10, show=False) 
+                except:
+                    shap.summary_plot(shap_values, X_test[features], plot_type='dot', show=False)
+                
+                fig = plt.gcf()  # Get current figure
 
-            # Save the figure to a buffer
-            buf = io.BytesIO()
-            fig.savefig(buf, format='png')
-            buf.seek(0)
-            image_data = buf.read()
+                # Save the figure to a buffer
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png')
+                buf.seek(0)
+                image_data = buf.read()
 
-            results_dictonary[algo_name][outcome_name] = {}
+                results_dictonary[algo_name][outcome_name] = {}
 
-            results_dictonary[algo_name][outcome_name]['evaluation'] = metric_dic
-            results_dictonary[algo_name][outcome_name]['shap values'] = image_data
-            
-            filename_shap = os.path.join(algorithm_folder, algo_name + "_" + sanitize_filename(outcome_name) + "_shap.png")
-            plt.savefig(filename_shap,dpi=700)
-            plt.show()  # Display the plot
-            plt.close(fig)
+                results_dictonary[algo_name][outcome_name]['evaluation'] = metric_dic
+                results_dictonary[algo_name][outcome_name]['shap values'] = image_data
+                
+                filename_shap = os.path.join(algorithm_folder, algo_name + "_" + sanitize_filename(outcome_name) + "_shap.png")
+                plt.savefig(filename_shap,dpi=700)
+                plt.show()  # Display the plot
+                plt.close(fig)
 
-            st.write('Results Saved!')
+                #st.write('Results Saved!')
 
+            st.success(f"✅Testing Done for {algo_name} on {o_name}!")
             print("_________________________________________________________")
 
+    st.success(f"✅Testing is Complete!")
     return results_dictonary  
 
 def generate_results_table(results_dictonary):
@@ -369,12 +374,12 @@ def plot_feature_importance(feature_importance_dic, directory_name):
 
 # back button to return to main page
 if st.button('Back'):
-    st.switch_page("pages/Testing_Models.py")  # Redirect to the main back
+    st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
 
 # Title
-st.title("Upload and Test ML Model (Native)")
+st.title("🧪 Upload and Test ML Model (Native)")
 
-st.write("Test multiple models.")
+st.write("Test multiple models based on the Sklearn framework using new/unseen data.")
 
 # Dropdown to select the ML model
 exp_name = st.selectbox("Select the ML model(s)", exp_names)
@@ -475,49 +480,54 @@ threshold_type = st.selectbox("Select a Threshold type", ['youden', 'mcc', 'ji',
 
 if model_path is not None and uploaded_test_set is not None and len(selected_outcomes)!=0:
     # button to test the models
-    if st.button('Test the models'):
+    if st.button('Test the models 🧪'):
         
         #try:
         # call the function to test models
-        results_dictonary = test_models(models_dic, selected_algos, selected_outcomes, input_variables, test_set, exp_name, cutoff_index=threshold_type)
+        results_dictonary = test_models(models_dic, selected_algos, selected_outcomes, input_variables, test_set, exp_name, test_set_name, cutoff_index=threshold_type)
 
-        st.write(results_dictonary)
+        #st.write(results_dictonary)
 
-        algorithm_folder = os.path.join("Results", exp_name)
-        os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
+        with st.spinner("Saving all results..."):
+            algorithm_folder = os.path.join("Results", exp_name, test_set_name)
+            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
 
-        path_name = os.path.join(algorithm_folder, f"{exp_name}_results.joblib")
-        joblib.dump(results_dictonary, path_name)
+            path_name = os.path.join(algorithm_folder, f"{exp_name}_results.joblib")
+            joblib.dump(results_dictonary, path_name)
 
-        # generate the results table
-        results_df = generate_results_table(results_dictonary)
-        table_name = os.path.join(algorithm_folder, f"{exp_name}_results.xlsx")
+            # generate the results table
+            results_df = generate_results_table(results_dictonary)
+            table_name = os.path.join(algorithm_folder, f"{exp_name}_results.xlsx")
 
-        results_df.to_excel(table_name, index=False, engine='openpyxl')
+            results_df.to_excel(table_name, index=False, engine='openpyxl')
 
-        results_df.to_excel(table_name, index=False)
-        results_df.to_excel(table_name, index=False)
-        expand_cell_excel(table_name)
-        wrap_text_excel(table_name)
-        grid_excel(table_name)
+            results_df.to_excel(table_name, index=False)
+            results_df.to_excel(table_name, index=False)
+            expand_cell_excel(table_name)
+            wrap_text_excel(table_name)
+            grid_excel(table_name)
 
-        # Convert results_df to list of dictionaries
-        results_dic = results_df.to_dict(orient='records')
-        results_dic
+            # Convert results_df to list of dictionaries
+            results_dic = results_df.to_dict(orient='records')
+            results_dic
 
-        result = {
-            "exp_name": exp_name,
-            "type": model_type,
-            "test set": test_set_name,
-            "results_dic": results_dictonary,
-            "results_table": results_dic,
-        }
+            result = {
+                "exp_name": exp_name,
+                "type": model_type,
+                "test set": test_set_name,
+                "results_dic": results_dictonary,
+                "results_table": results_dic,
+            }
 
-        results.insert_one(result) # insert one dictonary
-        #except:
-            #st.write("Error has occured in testing. Check if feature set in data contains the required input variables from the model.")
+            results.insert_one(result) # insert one dictonary
+            #except:
+                #st.write("Error has occured in testing. Check if feature set in data contains the required input variables from the model.")
 
-if os.path.isfile(f"{exp_name}_results.xlsx") or os.path.isfile(f"{exp_name}_results.joblib"):
+        st.success(f"✅ Testing '{exp_name}' completed successfully!")
+        st.subheader("Jump to Visualizing Results") # redirect to the testing section
+        st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+
+#if os.path.isfile(f"{exp_name}_results.xlsx") or os.path.isfile(f"{exp_name}_results.joblib"):
     # swithces to Visualize_Results
-    if st.button('Visualize ML Results'):
-        st.switch_page("pages/Visualize_Options.py")  # Redirect to visualize_results.py
+    #if st.button('Visualize ML Results'):
+        #st.switch_page("pages/Visualize_Options.py")  # Redirect to visualize_results.py

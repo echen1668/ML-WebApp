@@ -73,6 +73,72 @@ rstate = 12
 #import Multiclass_Classification_tools
 #import Binary_Classification_tools
 
+global options_default
+global options_test_set
+global algo_shortnames # short names for ML Algorithims
+algo_shortnames = {
+    "Random Forest": "rf",
+    "XGBoost": "xgb",
+    "Cat Boost": "cat",
+    "SGD Elastic": "sgd_elastic",
+    "SGD L2": "sgd_l2",
+    "Logistic Reg. L2": "lr_l2",
+    "Logistic Reg.": "lr", 
+    "Descision Tree": "dt", 
+    "SVM": "svm",
+    "KNearest N.": "knn", 
+}
+
+options_test_set = { # default options dict
+        'oneHotEncode' : "True", 
+        'Impute': "True", 
+        'cutMissingRows' : "True",
+        "cut threshold": 0.60,
+        "inf": 'replace with null',
+        'outliers': "log",
+        'outliers_N': 50000, 
+        'Scaling': "True", 
+        'scalingMethod': "StandardScaler", 
+        'QuantileTransformer': "True", 
+        'Normalize': "True",
+        'rebalance' : "True",
+        'rebalance_type': "SMOTE",
+        'FeatureSelection': "True",
+        "method": 'SelectKBest-f_classif',
+        'N_features': 40, 
+        'strategy': "random", 
+        'itr': 50,
+        "CV": 10,
+        "n_repeats": 1,
+        "min_postives": 10,
+    }
+
+options_default = { # test set options dict
+        'oneHotEncode' : "True", 
+        'Impute': "True", 
+        'cutMissingRows' : "True",
+        "cut threshold": 0.60,
+        "inf": 'replace with null',
+        'outliers': "log",
+        'outliers_N': 50000, 
+        'Scaling': "True", 
+        'scalingMethod': "StandardScaler", 
+        'QuantileTransformer': "True", 
+        'Normalize': "True",
+        'rebalance' : "True",
+        'rebalance_type': "SMOTE",
+        'FeatureSelection': "True",
+        "method": 'SelectKBest-f_classif',
+        'N_features': 40, 
+        'strategy': "random", 
+        'itr': 50,
+        "CV": 10,
+        "n_repeats": 1,
+        "min_postives": 10,
+        "test_size": 0.2,
+        'cutoff_index': 'youden'
+    }
+
 def sanitize_filename(filename):
     """Remove or replace invalid characters from filenames."""
     invalid_chars = '<>:"/\\|?*'
@@ -302,12 +368,12 @@ def save_dictionary(dict_file, file_type=".json"):
     print(filename)
     return filename
 
-def generate_configuration_file(num_exp, project_name, test_set, exp_name, algorithms, filename, problem_type, cross_validation, options, param_vals):
+def generate_configuration_file_old(num_exp, project_name, test_set, exp_name, algorithms, filename, problem_type, cross_validation, options, param_vals):
     configuration_dic = {}
     configuration_dic[project_name] = {}
     
     for i in range(num_exp):
-        print(i)
+        #st.write(i)
         experiment = {}
         experiment['algorithm'] = algorithms[i]
         experiment['test_set'] = test_set[i]
@@ -1331,3 +1397,145 @@ def generate_results_table(results_dictonary):
     # Convert the list of rows into a DataFrame
     results_df = pd.DataFrame(rows)
     return results_df
+
+def get_avg_metric(variable, metrics):
+    values_list = []
+    for metric in metrics:
+        values_list.append(metric[variable])
+
+    values_avg = sum(values_list) / len(values_list)
+    return values_avg
+
+# get the average metric scores in results_dictonary values
+def get_avg_results_dic(results_dictonary):
+
+    results_dictonary_avg = {}
+
+    for _, (algo, data) in enumerate(results_dictonary.items()):
+        st.write(algo)
+        #st.write(metrics)
+        results_dictonary_avg[algo] = {}
+
+        for _, (outcome, values) in enumerate(data.items()):
+            st.write(outcome)
+            #t.write(values)
+            metric_dic_train = {}
+            metric_dic_test = {}
+
+            results_dictonary_avg[algo][outcome] = {}
+            metrics_train = values['Metrics']['Train']
+            metrics_test = values['Metrics']['Test']
+
+            metric_dic_test['TPR'] = get_avg_metric('TPR', metrics_test)
+            metric_dic_test['TNR'] = get_avg_metric('TNR', metrics_test)
+            metric_dic_test['FPR'] = get_avg_metric('FPR', metrics_test)
+            metric_dic_test['FNR'] = get_avg_metric('FNR', metrics_test)
+
+            metric_dic_test['PPV'] = get_avg_metric('PPV', metrics_test)
+            metric_dic_test['NPV'] = get_avg_metric('NPV', metrics_test)
+
+            metric_dic_test['AUROC Score'] = get_avg_metric('AUROC Score', metrics_test)
+            metric_dic_test['AUROC CI Low'] = get_avg_metric('AUROC CI Low', metrics_test)
+            metric_dic_test['AUROC CI High'] = get_avg_metric('AUROC CI High', metrics_test)
+
+            metric_dic_test['cutoff'] = get_avg_metric('cutoff', metrics_test)
+            metric_dic_test['cutoff type'] = metrics_test[0]['cutoff type']
+
+            metric_dic_test['Accuracy'] = get_avg_metric('Accuracy', metrics_test)
+
+            metric_dic_test['precision'] = get_avg_metric('precision', metrics_test)
+            metric_dic_test['recall'] = get_avg_metric('recall', metrics_test)
+
+            metric_dic_test['TP'] = get_avg_metric('TP', metrics_test)
+            metric_dic_test['FP'] = get_avg_metric('FP', metrics_test)
+            metric_dic_test['TN'] = get_avg_metric('TN', metrics_test)
+            metric_dic_test['FN'] = get_avg_metric('FN', metrics_test)
+
+            metric_dic_test['P'] = get_avg_metric('P', metrics_test)
+            metric_dic_test['N'] = get_avg_metric('N', metrics_test)
+
+            metric_dic_test['AUROC Score (Train)'] = get_avg_metric('AUROC Score', metrics_train)
+            metric_dic_test['AUROC CI Low (Train)'] = get_avg_metric('AUROC CI Low', metrics_train)
+            metric_dic_test['AUROC CI High (Train)'] = get_avg_metric('AUROC CI High', metrics_train)
+
+            metric_dic_test['P (Train)'] = get_avg_metric('P', metrics_train)
+            metric_dic_test['N (Train)'] = get_avg_metric('N', metrics_train)
+
+
+            results_dictonary_avg[algo][outcome]['evaluation'] = metric_dic_test
+
+            results_dictonary_avg[algo][outcome]['roc'] = {}
+            results_dictonary_avg[algo][outcome]['roc']['Train'] = values['ROC']['Train']
+            results_dictonary_avg[algo][outcome]['roc']['Test'] = values['ROC']['Test']
+
+            results_dictonary_avg[algo][outcome]['conf_matrix'] = {}
+            results_dictonary_avg[algo][outcome]['conf_matrix']['Train'] = values['Conf_Matrix']['Train'].tolist()
+            results_dictonary_avg[algo][outcome]['conf_matrix']['Test'] = values['Conf_Matrix']['Test'].tolist()
+    
+    #st.write(results_dictonary_avg)
+    return results_dictonary_avg
+
+# create the configuration file
+def generate_configuration_file(num_exp, project_name, train_set, test_sets, exp_names, algorithms, exp_type, options, param_vals):
+    configuration_dic = {}
+    configuration_dic[project_name] = {}
+    #configuration_dic[project_name]['train_set']  = train_set
+    #configuration_dic[project_name]['test_sets']  = test_sets
+    configuration_dic[project_name]['exp_type']  = exp_type
+    
+    for i in range(num_exp):
+        #st.write(i)
+        experiment = {}
+        experiment['algorithm'] = algorithms[i]
+        #experiment['training_type'] = training_type[i]
+        experiment['options'] = options[i]
+        experiment['param_vals'] = param_vals[i]
+        
+        configuration_dic[project_name][exp_names[i]] = experiment
+    
+    #st.write("Configuration_dic : ", configuration_dic)
+    
+    return configuration_dic
+    
+
+# generate configuration template
+def generate_configuration_template(project_name, num_exp, training_method):
+    #st.write("Number of exp. :", num_exp)
+    exp_names=["exp_" + str(i) for i in range(num_exp)]
+    algorithms=["enter_algo_here"]*num_exp
+    train_set="enter_filename_here"
+    options=[options_test_set]*num_exp if training_method=="Dedicated Test Set" else [options_default]*num_exp
+    
+    configuration_dic = generate_configuration_file(num_exp=num_exp, 
+                            project_name=project_name, 
+                            train_set=train_set,
+                            test_sets=["None"],
+                            exp_names=exp_names,
+                            algorithms=algorithms, 
+                            exp_type="enter_type_here", 
+                            #training_type=["enter_type_here"] * num_exp,
+                            options=options,
+                            param_vals=["None"]*num_exp)
+
+    #st.write(configuration_dic)
+
+    return configuration_dic
+
+def generate_congfig_file(exp_name, algorithims, exp_type, options):
+    print("Number of exp. :", len(algorithims))
+
+    configuration_dic = {}
+    configuration_dic[exp_name] = {}
+    configuration_dic[exp_name]['exp_type']  = exp_type
+
+    for algorithim in algorithims:
+        experiment = {}
+        experiment['algorithm'] = algo_shortnames[algorithim]
+        experiment['options'] = options
+        experiment['param_vals'] = "None"
+
+        configuration_dic[exp_name][f"exp_{algorithim}"] = experiment
+    
+    #st.write("Configuration_dic : ", configuration_dic)
+    
+    return configuration_dic

@@ -131,7 +131,7 @@ if st.button('Back'):
     st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
 
 # Title
-st.title("Visualize ML Results (Native) (Cross Validation)")
+st.title("❌ Visualize ML Results (Native) (Cross Validation)")
 
 st.write("This page helps you visualize the results of your ML model(s). This is for Cross Validation")
 st.write("")  # Add for more space

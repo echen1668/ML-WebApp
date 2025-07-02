@@ -214,14 +214,14 @@ if st.button('Back'):
     st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
 
 # Title
-st.title("Visualize ML Results (Native)")
+st.title("🔥 Visualize ML Results (Native)")
 
 st.write("This page helps you visualize the results of your ML model(s).")
 st.write("")  # Add for more space
 st.write("")
 
 # Dropdown to select the experiment to display results from
-exp_name = st.selectbox("Select a saved ML experiment", exp_names)
+exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select a ML experiment from the database.")
 
 # Upload and look at a results table
 st.markdown("<h2 style='text-align: center;'>Visualize the Results Table</h2>", unsafe_allow_html=True)
@@ -233,9 +233,12 @@ test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 #st.write(test_sets)
 
 # Dropdown to select the experiment to display results from
-test_set = st.selectbox("Select the test set used", test_sets)
+test_set = st.selectbox("Select the test set used", test_sets, help="Select a specfic test result from the ML experiment.")
 
-if st.button('Add Results'):
+# two options to decide what to do the named result
+#left_column, right_column = st.columns(2)
+
+if st.button('➕ Add Results', help="Add the result to the collective table."):
     # get the final results_dict
     results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 
@@ -258,7 +261,7 @@ if "df_total" not in st.session_state:
 
 if results_dict is not None:
     try:
-        # # get the results table
+        # get the results table
         df = pd.DataFrame(results_dict['results_table'])
 
         # Combine the two columns into a single string
@@ -288,8 +291,20 @@ if results_dict is not None:
     except Exception as e:
         st.error(f"Error loading file: {e}")
 
+# button to remove a specific experiment from the overall table and outcome_dic_total
+if st.button("➖ Remove Result", help="Remove the result to the collective table."):
+    st.session_state.df_total = st.session_state.df_total[~(st.session_state.df_total["Exp_Name-Test Set"] == f'{exp_name}-{test_set}')] # remove from table
+    
+    if exp_name in list(st.session_state.outcome_dic_total.keys()) and test_set in list(st.session_state.outcome_dic_total[exp_name]):
+        del st.session_state.outcome_dic_total[exp_name][test_set] # remove from outcome_dic_total
+        if len(st.session_state.outcome_dic_total[exp_name]) == 0:
+            del st.session_state.outcome_dic_total[exp_name]
+
+    # edit the ROC plot to remove all plots that involved the removed result
+    st.session_state.outcome_options = [item for item in st.session_state.outcome_options if f'{exp_name}-{test_set}' not in item]
+
 # button to reset the table
-if st.button('Clear All Data'):
+if st.button('❌ Clear All Data', help="Clear the collective table."):
     st.session_state.df_total = pd.DataFrame()
     exp_names = None
     results_dict = None
@@ -307,16 +322,16 @@ if len(st.session_state.df_total) != 0:
       # List of all column names excluding the specified ones
     columns_to_exclude = ["Exp_Name-Test Set", 'Test Set', 'Algorithm', 'Exp_Name', 'Outcome', 'AUROC CI Lower', 'AUROC CI Upper', 'AUROC CI Lower (Train)', 'AUROC CI Upper (Train)', 
                           'Cutoff value', 'Best Model', 'TN', 'TP', 'FN', 'FP', 'P', 'N', 'P (Train)', 'N (Train)',
-                          'Upper_CI_Gap', 'Lower_CI_Gap', "Upper_CI_Gap (Train)", "Lower_CI_Gap (Train)", "AUROC CI Upper (Train)", "AUROC CI Lower (Train)"]
+                          'Upper_CI_Gap', 'Lower_CI_Gap', "Upper_CI_Gap (Train)", "Lower_CI_Gap (Train)", "AUROC CI Upper (Train)", "AUROC CI Lower (Train)", "Outcome_Algorithm"]
     options = [col for col in st.session_state.df_total.columns if col not in columns_to_exclude]
     algorithms = ['All'] + st.session_state.df_total['Algorithm'].unique().tolist()
     outcomes = ['All'] + st.session_state.df_total['Outcome'].unique().tolist()
         
     # Dropdown to select the metric to disply in a barchart
-    metric = st.selectbox("Select a Metric", options)
+    metric = st.selectbox("Select a Metric", options, help="Select a metric to view performace.")
 
     # choose which varaible to compare with
-    variable = st.radio("Choose an option:", ["Algorithm", "Outcome"])
+    variable = st.radio("Choose an option:", ["Algorithm", "Outcome"], help="Chose a specific algorithm or outcome to view its performace in all test results.")
 
     # error bars
     error_y = None # default
@@ -371,7 +386,7 @@ st.write("")  # Add for more space
 st.write("")
 
 # Visuize and compare ROC Curves
-st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC curve.")
 
 # add outcome_dic to st.session_state.outcome_dic_total
 if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
@@ -386,7 +401,7 @@ if "show_values_outcome_dic" not in st.session_state:
         st.session_state.show_values_outcome_dic = False
 
 # Button to display values of outcome_dic
-if st.button('Display the Values'):
+if st.button('Display the Values', help="Display a dictionary of all the results uploaded."):
     st.session_state.show_values_outcome_dic = True  # Set state to show values
 
 # Button to hide values (appears only when values are shown)
@@ -417,7 +432,7 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
                 st.session_state.outcome_options.append(f'{exp}-{test}-{algo}-{outcome}')
 
     # button to reset the table
-    if st.button('Clear All Plots'):
+    if st.button('Clear All Plots', help="Clear the plot chart."):
         st.session_state.outcome_options = []
 
     st.title("ROC Curve Analysis")
@@ -428,13 +443,13 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
     if st.session_state.outcome_options:
         plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
-    st.title("SHAP Value Analysis")
+    st.title("SHAP Value Analysis", help="View the SHAP chart for each ROC curve.")
         
     if st.session_state.outcome_options:
         plot_shap(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
 
-    st.title("Confusion matrix Analysis")
+    st.title("Confusion matrix Analysis", help="View the confusion matrix for each ROC curve")
         
     if st.session_state.outcome_options:
         plot_confusion_matrix(st.session_state.outcome_dic_total, st.session_state.outcome_options)

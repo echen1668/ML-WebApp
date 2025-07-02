@@ -1,0 +1,221 @@
+import time
+import io
+import pandas as pd
+import numpy as np
+import sklearn as scikit_learn
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn import metrics
+from sklearn.metrics import roc_curve
+from sklearn.metrics import auc
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import csv
+import shutil
+import pickle
+import random 
+from random import randint
+from random import uniform
+from pathlib import Path
+import json
+from scipy import stats
+import os
+import joblib as joblib
+from joblib import dump, load
+import plotly.express as px
+#np.random.seed(1000)
+rstate = 12
+from PIL import Image
+import os
+import joblib
+import datetime
+import pprint
+import pymongo
+from pymongo import MongoClient
+
+# import module
+import streamlit as st
+
+# connect to database
+client = MongoClient('10.14.1.12', 27017)
+# create the database if it does not already exists
+db = client.machine_learning_database
+# create tables for models in the databse
+models = db.models
+# create the results collection if it does not already exists
+results = db.results
+# get all unique exp. names from results collection
+exp_names_results = db.results.distinct("exp_name")
+# get all unique exp. names from results collection
+exp_names_models = db.models.distinct("exp_name")
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Manage Experiments and Results",
+    page_icon="🔧",
+    layout="wide"
+)
+
+# back button to return to main page
+if st.button('Back'):
+    st.switch_page("ML_Interface.py")  # Redirect to the main back
+
+
+# --- Page Content ---
+
+st.title("🔧 Manage Experiments and Results")
+st.markdown("This page allows you to delete or rename old models/experiments and old results.")
+
+st.divider()
+
+delete, rename = st.tabs(["🗑️ Delete an Experiment", "✏️ Rename an Experiment"])
+
+
+
+
+
+########################
+# FOR DELETE SECTION
+########################
+
+# session states for disabling delete model button
+if 'run_delete_button' in st.session_state and st.session_state.run_delete_button == True:
+    st.session_state.running_delete = True
+else:
+    st.session_state.running_delete = False
+
+# delete an experiment
+delete.subheader("🗑️-🧪 Delete an Experiment?")
+delete.write("Find an experiment from the database and remove it and all its associated results from both the database and file system.")
+# Dropdown to select the experiment to display results from
+exp_name_model = delete.selectbox("Select a saved ML experiment to delete", list(set(exp_names_models + exp_names_results)), index=None, placeholder="Select One...")
+
+if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model != None and delete.button("Delete Experiment", disabled=st.session_state.running_delete, key='run_delete_button'):
+    # remove all instances of the experiment from the database
+    models.delete_many({"exp_name": exp_name_model})
+    results.delete_many({"exp_name": exp_name_model})
+
+    # remove all instances of the experiment from the file system
+    model_path = os.path.join("Models", exp_name_model)
+    delete.write(model_path)
+    if os.path.exists(model_path):
+        shutil.rmtree(model_path)
+        delete.success("Experiment is deleted successfully from Models folder.")
+    else:
+        delete.error("Experiment not found in Models folder")
+
+    results_path = os.path.join("Results", exp_name_model)
+    delete.write(results_path)
+    if os.path.exists(results_path):
+        shutil.rmtree(results_path)
+        delete.success("Experiment is deleted successfully from Results folder.")
+    else:
+        delete.error("Experiment not found in Results folder")
+
+
+delete.write("")
+delete.write("")
+
+# session states for disabling delete results button
+if 'run_results_button' in st.session_state and st.session_state.run_results_button == True:
+    st.session_state.running_results = True
+else:
+    st.session_state.running_results = False
+
+# delete a results
+delete.subheader("🗑️-📊 Delete a Results?")
+delete.write("Find a result from the database and remove it from both the database and file system.")
+# Dropdown to select the experiment to display results from
+exp_name_result = delete.selectbox("Select a saved ML Result", exp_names_results, index=None, placeholder="Select One...")
+
+# get the results_dicts
+results_dicts = results.find({"exp_name": exp_name_result})
+test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
+
+# Dropdown to select the experiment to display results from
+test_set = delete.selectbox("Select the test set used", test_sets)
+
+if len(list(set(exp_names_models + exp_names_results))) != 0  and exp_name_result != None and delete.button("Delete Result", disabled=st.session_state.running_results, key='run_results_button'):
+    # remove all instances of the experiment from the database
+    results.delete_many({"exp_name": exp_name_result, "test set": test_set})
+
+    # remove all instances of the experiment from the file system
+    results_test_path = os.path.join("Results", exp_name_result, test_set)
+    delete.write(results_test_path)
+    if os.path.exists(results_test_path):
+        shutil.rmtree(results_test_path)
+        delete.success("Result is deleted successfully from Results folder.")
+    else:
+        delete.error("Result not found in Results folder")
+
+
+
+
+########################
+# FOR RENAME SECTION
+########################
+
+# session states for disabling rename button
+if 'run_rename_button' in st.session_state and st.session_state.run_rename_button == True:
+    st.session_state.running_rename = True
+else:
+    st.session_state.running_rename = False
+
+# rename an experiment
+rename.subheader("✏️ Rename an Experiment?")
+rename.write("Find an experiment from the database and rename it.")
+# Dropdown to select the experiment to display results from
+exp_name_model = rename.selectbox("Select a saved ML experiment to rename", list(set(exp_names_models + exp_names_results)), index=None, placeholder="Select One...")
+# Let user specify the new name
+new_exp_name = rename.text_input("Enter a new Name", "")
+
+if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model != None and new_exp_name != "" and rename.button("Rename Experiment", disabled=st.session_state.running_rename, key='run_rename_button'):
+    models.update_many(
+        {"exp_name": exp_name_model}, # Filter condition
+        {"$set": { "exp_name": new_exp_name,
+        "model_path": f"Models\{new_exp_name}\{new_exp_name}_models.joblib" }}
+    )
+
+    results.update_many(
+        {"exp_name": exp_name_model}, # Filter condition
+        {"$set": { "exp_name": new_exp_name }} # Update operation
+    )
+
+    # rename all instances of the experiment from the file system
+    old_model_path = os.path.join("Models", exp_name_model)
+    new_model_path = os.path.join("Models", new_exp_name)
+    #rename.write(old_model_path)
+    #rename.write(new_model_path)
+    if os.path.exists(old_model_path):
+
+        # rename the joblib model file
+        os.rename(os.path.join(old_model_path, f"{exp_name_model}_models.joblib"), os.path.join(old_model_path, f"{new_exp_name}_models.joblib"))
+        
+        # rename the model folder
+        os.rename(old_model_path, new_model_path)
+
+        rename.success("Experiment is successfully renamed in Models folder.")
+    else:
+        rename.error("Experiment not found in Models folder")
+
+    old_results_path = os.path.join("Results", exp_name_model)
+    new_results_path = os.path.join("Results", new_exp_name)
+    rename.write(old_results_path)
+    rename.write(new_results_path)
+    if os.path.exists(old_results_path):
+        
+        # rename the results files
+        directory_contents = os.listdir(old_results_path)
+        for item_name in directory_contents:
+            # You can also iterate through the subdirectories specifically
+            st.write(item_name)
+            item_path = os.path.join(old_results_path, item_name)
+            os.rename(os.path.join(item_path, f"{exp_name_model}_results.joblib"), os.path.join(item_path, f"{new_exp_name}_results.joblib"))
+            os.rename(os.path.join(item_path, f"{exp_name_model}_results.xlsx"), os.path.join(item_path, f"{new_exp_name}_results.xlsx"))
+            
+        # rename the model results folder
+        os.rename(old_results_path, new_results_path)
+        rename.success("Experiment is successfully renamed in Results folder.")
+    else:
+        rename.error("Experiment not found in Results folder")
+
+    # Reset exp_name_model

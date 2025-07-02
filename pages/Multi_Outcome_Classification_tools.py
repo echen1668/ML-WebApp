@@ -135,7 +135,7 @@ def get_classifier(alg, param_vals="None"):
                           'n_estimators': list(np.arange(5, 80, 5)),
                           'min_samples_split': [2, 3, 4, 5, 6, 7],
                           'min_samples_leaf': [1, 2, 3, 4, 5],
-                          'max_features': ['auto', 'sqrt', 'log2', None]}
+                          'max_features': ['sqrt', 'log2', None]}
         
     elif alg == 'dt':
         from sklearn.tree import DecisionTreeClassifier
@@ -881,7 +881,7 @@ def multi_outcome_stratified_binary(df, input_cols, label_cols, numeric_cols, ca
                 y_train_fold.reset_index(drop=True, inplace=True)
 
             # Scaling if chosen
-            if options['Scaling'] == "True":
+            if options['Scaling'] == "True" and len(numeric_cols) > 0:
                 #print("Numeric Cols: ", numeric_cols)
                 #print("input_cols: ", input_cols)
                 X_train_fold, scaler = Common_Tools.scaling(X_train_fold, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
@@ -1280,7 +1280,7 @@ def multi_outcome_repeated_stratified_binary(df, input_cols, label_cols, numeric
                 y_train_fold.reset_index(drop=True, inplace=True)
 
             # Scaling if chosen
-            if options['Scaling'] == "True":
+            if options['Scaling'] == "True" and len(numeric_cols) > 0:
                 #print("Numeric Cols: ", numeric_cols)
                 #print("input_cols: ", input_cols)
                 X_train_fold, scaler = Common_Tools.scaling(X_train_fold, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
@@ -1655,7 +1655,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
             joblib.dump(imputer, imputing_name)
 
         # Scaling if chosen
-        if options['Scaling'] == "True":
+        if options['Scaling'] == "True" and len(numeric_cols) > 0:
             #st.write("Scaling")
             X_train, scaler = Common_Tools.scaling(X_train, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
             y_train.reset_index(drop=True, inplace=True)
@@ -1817,7 +1817,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
 
 
         
-def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals_raw, experiment_name, project_folder, project_name):
+def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals_raw, experiment_name, project_folder, project_name, data_name):
     
     outcome_stats = {}
     algo_dictonary = {}
@@ -1870,6 +1870,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         if (y_train == 1).sum() < 10:
             print("Too little postive outcomes to predict (after removing early cases)")
             f.write("\nToo little postive outcomes to predict (after removing early cases)")
+            st.error(f"Too little postive outcomes to predict outcome: {label_col} on {algorithm}.") 
             removed_label_cols.append(label_col)
             continue
             
@@ -1897,7 +1898,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
             y_test.reset_index(drop=True, inplace=True)
 
         # Scaling if chosen
-        if options['Scaling'] == "True":
+        if options['Scaling'] == "True" and len(numeric_cols) > 0:
             #st.write("Scaling")
             X_train, scaler = Common_Tools.scaling(X_train, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
             y_train.reset_index(drop=True, inplace=True)
@@ -2039,7 +2040,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         joblib.dump(params, bestparams)
 
         # save the results in folders
-        algorithm_folder = os.path.join("Results", project_name, f'{algorithm} (results)', label_col)
+        algorithm_folder = os.path.join("Results", project_name, data_name, f'{algorithm} (results)', label_col)
         os.makedirs(algorithm_folder, exist_ok=True)
 
         # testing on the test set
@@ -2174,7 +2175,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 y_test_fold.reset_index(drop=True, inplace=True)
 
             # Scaling if chosen
-            if options['Scaling'] == "True":
+            if options['Scaling'] == "True" and len(numeric_cols) > 0:
                 #st.write("Scaling")
                 X_train_fold, scaler = Common_Tools.scaling(X_train_fold, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
                 y_train_fold.reset_index(drop=True, inplace=True)
@@ -2228,8 +2229,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             probas_test = estimator.predict_proba(X_test_fold) # get probablities with test set
 
 
-            metric_dic_train, _ = test_and_save_results(estimator, X_train_fold, y_train_fold, options, algorithm_folder, algorithm, label_col, roc=False, shap=False)
-            metric_dic_test, _ = test_and_save_results(estimator, X_test_fold, y_test_fold, options, algorithm_folder, algorithm, label_col, roc=False, shap=False)
+            metric_dic_train, _ = test_and_save_results(estimator, X_train_fold, y_train_fold, options, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
+            metric_dic_test, _ = test_and_save_results(estimator, X_test_fold, y_test_fold, options, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
 
             predictions_train = [1 if p >= metric_dic_train['cutoff'] else 0 for p in probas_train[:, 1]] # predict with train set
             predictions_test = [1 if p >= metric_dic_test['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
@@ -2280,13 +2281,22 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         #st.write(probas_train_list)
         # plot the average ROC curves
         sanitize_label_col = Common_Tools.sanitize_filename(label_col)
-        #st.write(sanitize_label_col)
-        roc_train_filename = os.path.join(project_folder, experiment_name, algorithm, sanitize_label_col, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
-        roc_test_filename = os.path.join(project_folder, experiment_name, algorithm, sanitize_label_col, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
+        #st.write(sanitize_label_col) os.path.join("Results", project_name, data_name)
+        results_folder = os.path.join("Results", project_name, experiment_name, algorithm, sanitize_label_col)
+        os.makedirs(results_folder, exist_ok=True)
+        roc_train_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
+        roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
         #st.write(roc_train_filename)
-        results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list), np.array(probas_train_list), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
-        results_array_test, image_roc_test = plot_averoc_curve(np.array(ground_truth_test_list), np.array(probas_test_list), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Test Set)", fig_name=roc_test_filename)
+        try:
+            results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list, dtype=float), np.array(probas_train_list, dtype=float), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
+        except:
+            results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list, dtype=object), np.array(probas_train_list, dtype=object), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
         
+        try:
+            results_array_test, image_roc_test = plot_averoc_curve(np.array(ground_truth_test_list, dtype=float), np.array(probas_test_list, dtype=float), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Test Set)", fig_name=roc_test_filename)
+        except:
+            results_array_test, image_roc_test = plot_averoc_curve(np.array(ground_truth_test_list, dtype=object), np.array(probas_test_list, dtype=object), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Test Set)", fig_name=roc_test_filename)
+           
         algo_dictonary[label_col] = {}
 
         # save the results in the algo_dictonary
@@ -2335,7 +2345,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
     return algo_dictonary
 
 
-def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo_name, outcome_name, df_res_train=None, roc=True, shap=True):
+def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo_name, outcome_name, df_res_train=None, roc=True, is_shap=True):
 
     metric_dic = {} # dictionary containg all important metrics
 
@@ -2423,7 +2433,7 @@ def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo
  
             
 
-    if shap==True:
+    if is_shap==True:
         # plot the SHAP Values
         plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
         explainer = shap.Explainer(model.predict, X_test)
