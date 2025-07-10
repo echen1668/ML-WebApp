@@ -29,7 +29,7 @@ from roctools import full_roc_curve, plot_roc_curve
 
 # back button to return to main page
 if st.button('Back'):
-    st.switch_page("pages/Training_Models.py")  # Redirect to the main back
+    st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
 
 # Title
 st.title("Sklearn/Native Models")

@@ -30,12 +30,12 @@ selected_outcomes = None
 import streamlit as st
 import os
 import joblib
-import datetime
+from datetime import datetime
 import pprint
 import pymongo
 from pymongo import MongoClient
 
-from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split
+from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data
 from roctools import full_roc_curve, plot_roc_curve
 
 # connect to database
@@ -49,6 +49,12 @@ models = db.models
 
 # create the results if it does not already exists
 results = db.results
+
+# create the results if it does not already exists
+datasets = db.datasets
+
+# get all testing data names from database
+data_names_list_test = db.datasets.distinct("data_name", {"type": "Test"})
 
 # get all unique exp. names from results collection
 exp_names = db.models.distinct("exp_name", {"type": "Native"})
@@ -371,15 +377,24 @@ def plot_feature_importance(feature_importance_dic, directory_name):
         plt.close()
 
         #plt.show()
-
+        
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="(Sklearn) Upload and Test ML Model",
+    page_icon="🧪",
+    layout="wide"
+)
 # back button to return to main page
 if st.button('Back'):
     st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
 
 # Title
-st.title("🧪 Upload and Test ML Model (Native)")
+st.title("🧪 Upload and Test ML Model (Sklearn)")
 
-st.write("Test multiple models based on the Sklearn framework using new/unseen data.")
+st.write("Test multiple models based on the Sklearn/Native framework using new/unseen data.")
+
+# --- Step 1: Retrive a ML Experiment ---
+st.header("Step 1: Retrive a ML Experiment")
 
 # Dropdown to select the ML model
 exp_name = st.selectbox("Select the ML model(s)", exp_names)
@@ -400,27 +415,48 @@ if model_type != 'Native':
     model_type = None
     input_variables = None
 
-# File uploader for the test
-uploaded_test_set= st.file_uploader("Upload a Testing Data Set (Optional)")
 
-# upload the test set
-if uploaded_test_set is not None:
-    try:
-        # Determine file type and read accordingly
-        if uploaded_test_set.name.endswith(".csv"):
-            test_set = pd.read_csv(uploaded_test_set)
-        else:
-            test_set = pd.read_excel(uploaded_test_set)
-        
+# --- Step 2: Upload Data (Dynamic UI) ---
+st.header("Step 2: Upload Data")
+
+#user chooses whatever to upload the data or retrive a past data set from the database
+data_options = st.radio("Choose an option:", ["Upload a testing set", "Retrive testing set from database"])
+
+if data_options == "Upload a testing set":
+    data_name_test = None
+    # File uploader for the test
+    uploaded_test_set= st.file_uploader("Upload a Testing Data Set")
+
+    # upload the test set
+    if uploaded_test_set is not None:
+        try:
+            # Determine file type and read accordingly
+            if uploaded_test_set.name.endswith(".csv"):
+                test_set = pd.read_csv(uploaded_test_set)
+            else:
+                test_set = pd.read_excel(uploaded_test_set)
+            
+            # Replace inf and -inf with NaN
+            test_set = test_set.replace([np.inf, -np.inf], np.nan)
+            
+            # Display the DataFrame
+            st.write("### Test Set:")
+            st.dataframe(test_set)
+
+        except Exception as e:
+            st.error(f"Error loading file: {e}")
+else:
+    uploaded_test_set = None
+    # Dropdown to select the testing dataset
+    data_name_test = st.selectbox("Select a Testing Dataset from the database:", data_names_list_test, index=None, placeholder="Select One...")
+    if data_name_test:
+        # upload the testing set
+        test_set = upload_data(os.path.join("Data Sets",data_name_test))
         # Replace inf and -inf with NaN
         test_set = test_set.replace([np.inf, -np.inf], np.nan)
-        
-        # Display the DataFrame
-        st.write("### Test Set:")
-        st.dataframe(test_set)
 
-    except Exception as e:
-        st.error(f"Error loading file: {e}")
+# --- Step 3: Configure Testing Pipeline ---
+st.header("Step 3: Configure Testing Pipeline")
 
 if model_path is not None:
     try:
@@ -478,7 +514,10 @@ threshold_type = st.selectbox("Select a Threshold type", ['youden', 'mcc', 'ji',
 # Let user specify file name
 #file_name = st.text_input("Enter File Name", "results")
 
-if model_path is not None and uploaded_test_set is not None and len(selected_outcomes)!=0:
+if model_path is not None and (uploaded_test_set or data_name_test) is not None and len(selected_outcomes)!=0:
+    # --- Step 4: Execute ---
+    st.header("Step 4: Begin Testing")
+
     # button to test the models
     if st.button('Test the models 🧪'):
         
@@ -510,13 +549,16 @@ if model_path is not None and uploaded_test_set is not None and len(selected_out
             # Convert results_df to list of dictionaries
             results_dic = results_df.to_dict(orient='records')
             results_dic
-
+            # get the current time
+            current_datetime = datetime.now()
+            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             result = {
                 "exp_name": exp_name,
                 "type": model_type,
                 "test set": test_set_name,
                 "results_dic": results_dictonary,
                 "results_table": results_dic,
+                "time_created": current_time
             }
 
             results.insert_one(result) # insert one dictonary

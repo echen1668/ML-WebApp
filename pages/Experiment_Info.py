@@ -35,6 +35,8 @@ from pymongo import MongoClient
 # import module
 import streamlit as st
 
+from Common_Tools import upload_data
+
 # connect to database
 client = MongoClient('10.14.1.12', 27017)
 # create the database if it does not already exists
@@ -43,6 +45,8 @@ db = client.machine_learning_database
 models = db.models
 # create the results collection if it does not already exists
 results = db.results
+# create the results if it does not already exists
+datasets = db.datasets
 # get all unique exp. names from results collection
 exp_names_results = db.results.distinct("exp_name")
 # get all unique exp. names from models collection
@@ -50,10 +54,12 @@ exp_names_models = db.models.distinct("exp_name")
 # get all unique exp. name from both model and results collection
 exp_names = list(set(exp_names_models + exp_names_results))
 exp_names.sort()
+# get all testing data names from database
+data_names = db.datasets.distinct("data_name")
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Experiments List",
+    page_title="Database List",
     page_icon="🗒️",
     layout="wide"
 )
@@ -76,25 +82,32 @@ if st.button('Back'):
 
 # --- Page Content ---
 
-st.title("🗒️ Experiments List")
-st.markdown("This page allows you to view a list of all experiments done and stored in the database.")
+st.title("🗒️ Database List")
+st.markdown("This page allows you to view a list of either all experiments done or datasets saved that are stored in the database.")
 
 st.divider()
 
-# delete an experiment
-st.subheader("📋 All Experiments")
-st.write("View all experiments stored in the database and view their infromation.")
+experiments, datasetlist = st.tabs(["🧪 Experiments", "📁 Datasets"])
+
+##########################
+# FOR EXPERIMENTS SECTION
+##########################
+
+
+# list all experiments
+experiments.subheader("📋 All Experiments")
+experiments.write("View all experiments stored in the database and view their infromation.")
 
 # Dropdown to select the sorting method
-#sort_method = st.selectbox("Sort By:", ['None', 'Alphabetically', 'Time'])
+#sort_method = experiments.selectbox("Sort By:", ['None', 'Alphabetically', 'Time'])
 
 # Search bar to filter list by substring
-search_substring = st.text_input("**Search**", help="Search for specific ML experiment by name.")
+search_substring = experiments.text_input("**Search**", help="Search for specific ML experiment by name.")
 filtered_exp_names = [s for s in exp_names if search_substring in s]
-#st.write(filtered_exp_names)
+#experiments.write(filtered_exp_names)
 
 # Dropdown to select the type filter
-filter_type = st.selectbox("**Select a type**", ['All', 'Native', 'Native-CV', 'AutoGulon'], help="Search a specific type of ML experiment.")
+filter_type = experiments.selectbox("**Select a type**", ['All', 'Native', 'Native-CV', 'AutoGulon'], help="Search a specific type of ML experiment.")
 
 # list all ML Experiments
 for exp_name in filtered_exp_names:
@@ -103,13 +116,22 @@ for exp_name in filtered_exp_names:
     model = models.find_one({"exp_name": exp_name})
 
     # get the model type and number of algorithims
-    if model==None:
+    if model==None: # for the CV types
         model = results.find_one({"exp_name": exp_name})
         model_type = model['type']
         num_algo = len(model['results_dic'])
-    else:
+    elif model['type'] =="Native":
         model_type = model['type']
         num_algo = len(model['algorithms'])
+    else:
+        model_type = model['type']
+        num_algo = 'N/A'
+
+    # get the time created
+    try:
+        time_created = model['time_created']
+    except:
+        time_created = 'N/A'
 
     # get all results for that ML experiment
     all_results = list(results.find({"exp_name": exp_name}))
@@ -120,7 +142,7 @@ for exp_name in filtered_exp_names:
         continue
 
     # create a new container
-    container = st.container(border=True)
+    container = experiments.container(border=True)
 
     # write all model content in container
     container.markdown('<div class="custom-container">', unsafe_allow_html=True)
@@ -129,17 +151,20 @@ for exp_name in filtered_exp_names:
     container.write("")
 
     container.write(f'**Model Type:** {model_type}')
+    container.write(f'**Time Created:** {time_created}')
     container.write(f'**Number of Algorithms:** {num_algo}')
 
     # list of algorthims
-    if model_type != "Native-CV":
+    if model_type == "Native":
         algo_list = list(model['algorithms'])
         container.write(f'**Algorithms:** {algo_list}')
-    else:
+    elif model_type == "Native-CV":
         # get the results table
         df = pd.DataFrame(model['results_table'])
         algo_list = list(df['Algorithm'].unique())
         container.write(f'**Algorithms:** {algo_list}')
+    else:
+        container.write(f'**Algorithms:** AutoGluon Stack Models')
 
 
     container.write(f'**Number of Test Results:** {num_results}')
@@ -165,3 +190,57 @@ for exp_name in filtered_exp_names:
             st.write(df_results_table)
 
     container.markdown('</div>', unsafe_allow_html=True)
+
+
+
+
+#######################
+# FOR DATABASE SECTION
+#######################
+
+
+# list all databases
+datasetlist.subheader("📋 All Datasets")
+datasetlist.write("View all datasets saved in the database and view their infromation.")
+
+# Search bar to filter list by substring
+search_substring = datasetlist.text_input("**Search**", help="Search for specific dataset by name.")
+filtered_data_names = [s for s in data_names if search_substring in s]
+
+# Dropdown to select the type filter
+filter_type = datasetlist.selectbox("**Select a type**", ['All', 'Train', 'Test'], help="Search a specific type of saved dataset.")
+
+#st.write(filtered_data_names)
+
+# list all ML Experiments
+for data_name in filtered_data_names:
+
+    #st.write(data_name)
+    # get dataset
+    dataset = datasets.find_one({"data_name": data_name})
+
+    # get the dataset info
+    data_type = dataset['type']
+    time_saved = dataset['time_saved']
+    data_path = dataset['data_path']
+
+    
+    # if type is not part of filtered list, it is skipped
+    if filter_type != 'All' and data_type != filter_type:
+        continue
+
+    # create a new container
+    container = datasetlist.container(border=True)
+
+    # write all model content in container
+    container.markdown('<div class="custom-container">', unsafe_allow_html=True)
+    container.write("")
+    container.markdown(f'##### <u>{data_name}</u>', unsafe_allow_html=True)
+    container.write("")
+
+    container.write(f'**Data Type:** {data_type}')
+    container.write(f'**Time Saved:** {time_saved}')
+
+    with container.expander("▶️ Full Data"):
+        df = upload_data(data_path)
+        st.write(df)

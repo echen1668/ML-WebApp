@@ -43,14 +43,18 @@ db = client.machine_learning_database
 models = db.models
 # create the results collection if it does not already exists
 results = db.results
+# create the results if it does not already exists
+datasets = db.datasets
 # get all unique exp. names from results collection
 exp_names_results = db.results.distinct("exp_name")
 # get all unique exp. names from results collection
 exp_names_models = db.models.distinct("exp_name")
+# get all testing data names from database
+data_names = db.datasets.distinct("data_name")
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Manage Experiments and Results",
+    page_title="Manage Experiments/Results/Datasets",
     page_icon="🔧",
     layout="wide"
 )
@@ -62,12 +66,12 @@ if st.button('Back'):
 
 # --- Page Content ---
 
-st.title("🔧 Manage Experiments and Results")
-st.markdown("This page allows you to delete or rename old models/experiments and old results.")
+st.title("🔧 Manage Experiments, Results, and Datasets")
+st.markdown("This page allows you to delete or rename old models/experiments, old results, and saved datasets.")
 
 st.divider()
 
-delete, rename = st.tabs(["🗑️ Delete an Experiment", "✏️ Rename an Experiment"])
+delete, rename = st.tabs(["🗑️ Delete Something?", "✏️ Rename Something?"])
 
 
 
@@ -148,6 +152,31 @@ if len(list(set(exp_names_models + exp_names_results))) != 0  and exp_name_resul
         delete.error("Result not found in Results folder")
 
 
+# session states for disabling delete datasets button
+if 'run_datasets_button' in st.session_state and st.session_state.run_datasets_button == True:
+    st.session_state.running_datasets = True
+else:
+    st.session_state.running_datasets = False
+
+
+# delete a dataset
+delete.subheader("🗑️-📁 Delete a Dataset?")
+delete.write("Find a dataset from the database and remove it from both the database and file system.")
+# Dropdown to select the experiment to display dataset from
+data_name = delete.selectbox("Select a saved Dataset", data_names, index=None, placeholder="Select One...")
+
+if len(list(data_names)) != 0 and data_name != None and delete.button("Delete Dataset", disabled=st.session_state.running_datasets, key='run_datasets_button'):
+
+    # remove all instances of the dataset from the file system
+    model_path = dataset_item['data_path']
+    delete.write(model_path)
+    if os.path.exists(model_path):
+        os.remove(model_path)
+        delete.success("Dataset is deleted successfully from Data Sets folder.")
+    else:
+        delete.error("Dataset not found in Data Sets folder")
+
+    datasets.delete_many({"data_name": data_name}) # delete dataset item from database
 
 
 ########################
@@ -161,12 +190,12 @@ else:
     st.session_state.running_rename = False
 
 # rename an experiment
-rename.subheader("✏️ Rename an Experiment?")
+rename.subheader("✏️-🧪 Rename an Experiment?")
 rename.write("Find an experiment from the database and rename it.")
 # Dropdown to select the experiment to display results from
 exp_name_model = rename.selectbox("Select a saved ML experiment to rename", list(set(exp_names_models + exp_names_results)), index=None, placeholder="Select One...")
 # Let user specify the new name
-new_exp_name = rename.text_input("Enter a new Name", "")
+new_exp_name = rename.text_input("Enter a new exp. name", "")
 
 if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model != None and new_exp_name != "" and rename.button("Rename Experiment", disabled=st.session_state.running_rename, key='run_rename_button'):
     models.update_many(
@@ -219,3 +248,46 @@ if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model 
         rename.error("Experiment not found in Results folder")
 
     # Reset exp_name_model
+
+
+# session states for disabling rename button for datasets
+if 'run_dataset_button' in st.session_state and st.session_state.run_dataset_button == True:
+    st.session_state.running_dataset = True
+else:
+    st.session_state.running_dataset = False
+
+# rename an experiment
+rename.subheader("✏️-📁 Rename Dataset?")
+rename.write("Find an saved dataset from the database and rename it.")
+# Dropdown to select the dataset to display from
+data_name = rename.selectbox("Select a saved dataset to rename", data_names, index=None, placeholder="Select One...")
+# Let user specify the new name
+new_data_name = rename.text_input("Enter a new dataset name (No need to add file extension)", "")
+
+if len(list(data_names)) != 0 and data_name != None and new_data_name != "" and rename.button("Rename Dataset", disabled=st.session_state.running_dataset, key='run_dataset_button'):
+
+    if data_name.endswith('.xlsx'):
+        new_data_name = new_data_name + ".xlsx"
+    elif data_name.endswith('.csv'):
+        new_data_name = new_data_name + ".csv"
+
+    #st.write(new_data_name)
+
+    # update dataset in databse
+    datasets.update_many(
+        {"data_name": data_name}, # Filter condition
+        {"$set": { "data_name": new_data_name,
+        "data_path": f"Data Sets\{new_data_name}" }}
+    )
+
+    # update dataset in folder system
+    old_model_path = f"Data Sets\{data_name}"
+    new_model_path = f"Data Sets\{new_data_name}"
+    if os.path.exists(old_model_path):
+        
+        # rename the Data Sets folder
+        os.rename(old_model_path, new_model_path)
+
+        rename.success("Dataset is successfully renamed in Data Sets folder.")
+    else:
+        rename.error("Dataset not found in Data Sets folder")

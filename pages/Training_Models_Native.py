@@ -88,13 +88,12 @@ import json
 import tkinter as tk
 from tkinter import *
 from autogluon.tabular import TabularDataset, TabularPredictor
-#np.random.seed(1000)
+import mimetypes
 from difflib import SequenceMatcher
 #np.random.seed(1000)
 rstate = 12
-
+from datetime import datetime
 # import module
-import datetime
 import pprint
 import pymongo
 from pymongo import MongoClient
@@ -118,9 +117,18 @@ models = db.models
 # create the results if it does not already exists
 results = db.results
 
+# create the results if it does not already exists
+datasets = db.datasets
+
 # get all unique exp. names from results collection
 #exp_names = db.models.distinct("exp_name", {"type": "Native"})
 exp_names = db.models.distinct("exp_name")
+
+# get all training data names from database
+data_names_train = db.datasets.distinct("data_name", {"type": "Train"})
+
+# get all testing data names from database
+data_names_list_test = db.datasets.distinct("data_name", {"type": "Test"})
 
 # run training
 def project(configuration_dic, data_sets, unique_value_threshold=10):
@@ -139,8 +147,26 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         index_set = data_sets["Index Set"]
         test_sets = data_sets["Testing Set"]
 
+        # save the data sets
         save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
         save_data(index_set['Name'], index_set['Data'], os.path.join(project_folder, index_set['Name']))
+
+        if train_set['Name'] not in data_names_train:
+            # get the current time
+            current_datetime = datetime.now()
+            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            # save train set into data folder and database
+            os.makedirs("Data Sets", exist_ok=True)
+            save_data(train_set['Name'], train_set['Data'], os.path.join("Data Sets", train_set['Name']))
+            dataset_train = {
+                    "data_name": train_set['Name'],
+                    "type": "Train",
+                    "time_saved": current_time,
+                    "data_path": os.path.join("Data Sets", train_set['Name'])
+            }
+            datasets.insert_one(dataset_train)
+        else:
+            st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database", icon="ℹ️")
 
         # get proper data name
         if train_set['Name'].endswith('.xlsx'):
@@ -176,6 +202,23 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
             # refine all the test sets and save them 
             for _, (testing_set_name, testing_set) in enumerate(data_sets['Testing Set'].items()):
+                
+                if testing_set_name not in data_names_list_test:
+                    # get the current time
+                    current_datetime = datetime.now()
+                    current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                    # save test set in data folder and database
+                    os.makedirs("Data Sets", exist_ok=True)
+                    save_data(testing_set_name, testing_set, os.path.join("Data Sets", testing_set_name))
+                    dataset_test = {
+                            "data_name": testing_set_name,
+                            "type": "Test",
+                            "time_saved": current_time,
+                            "data_path": os.path.join("Data Sets", testing_set_name)
+                    }
+                    datasets.insert_one(dataset_test)
+                else:
+                    st.info(f"Testing Dataset {testing_set_name} of the same name is already in the database", icon="ℹ️")
 
                 # prep testing sets
                 _, df_test, _, _ = data_prep_train_set(df_train, testing_set, input_cols, label_cols, numeric_cols, categorical_cols, options)
@@ -216,6 +259,10 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
             pathway_name = os.path.join(model_absolute_path, project_name + "_models.joblib")
             joblib.dump(models_dic, pathway_name)
+
+            # get the current time
+            current_datetime = datetime.now()
+            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             
             model = {
                 "exp_name": project_name,
@@ -223,7 +270,8 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 "model_path": pathway_name,
                 "algorithms": algorithms,
                 "input variables": input_cols_dic,
-                "configuration": configuration_dic
+                "configuration": configuration_dic,
+                "time_created": current_time
             }
 
             models.insert_one(model) # insert one dictonary 
@@ -257,12 +305,17 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
             results_dic = results_df.to_dict(orient='records')
             results_dic
 
+            # get the current time
+            current_datetime = datetime.now()
+            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
             result = {
                 "exp_name": project_name,
                 "type": training_type,
                 "test set": data_name,
                 "results_dic": final_results_dic,
                 "results_table": results_dic,
+                "time_created": current_time
             }
 
             results.insert_one(result) # insert one dictonary
@@ -399,26 +452,54 @@ else:
 
 # --- Step 2: Upload Data (Dynamic UI) ---
 st.header("Step 2: Upload Data")
-col1, col2 = st.columns(2)
-with col1:
-    # Use a consistent key for the main dataset uploader
-    dataset_uploader_key = "main_dataset_uploader"
-    
-    if st.session_state.training_method in ["Train/Test Split", "Cross-Validation"]:
-        main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
-        test_uploaded_file = None
-    else: # Dedicated Test Set
-        main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
-        test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
 
-with col2:
-    completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
+#user chooses whatever to upload the data or retrive a past data set from the database
+data_options = st.radio("Choose an option:", ["Upload a dataset", "Retrive dataset from database"])
+
+if data_options == "Upload a dataset":
+    data_name_train = None
+    data_names_test = []
+    col1, col2 = st.columns(2)
+    with col1:
+        # Use a consistent key for the main dataset uploader
+        dataset_uploader_key = "main_dataset_uploader"
+        
+        if st.session_state.training_method in ["Train/Test Split", "Cross-Validation"]:
+            main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
+            test_uploaded_file = None
+        else: # Dedicated Test Set
+            main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
+            test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
+
+    with col2:
+        completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
+else:
+    main_uploaded_file = None
+    test_uploaded_file = None
+
+    # Dropdown to select the training dataset
+    data_name_train = st.selectbox("Select a Training Dataset from the database:", data_names_train, index=None, placeholder="Select One...")
+
+    if st.session_state.training_method == "Dedicated Test Set":
+        # Dropdown to select the tesitng dataset
+        data_names_test = st.multiselect("Select a Testing Dataset from the database:", data_names_list_test)
+    else:
+        data_names_test = []
+
+    # Open and wrap the file like an uploaded file (binary mode)
+    if data_name_train is not None:
+        completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
+       
 
 
 st.write("")
 
+#st.write(main_uploaded_file)
+#st.write(test_uploaded_file)
+
+
 # upload the dataset(s)
-if main_uploaded_file:
+if data_options == "Upload a dataset" and main_uploaded_file:
     train_set = main_uploaded_file.name
     #st.write(train_set)
 
@@ -429,10 +510,16 @@ if main_uploaded_file:
     data_sets["Training Set"] = {}
     data_sets["Training Set"]["Name"] = main_uploaded_file.name
     data_sets["Training Set"]["Data"] = df_train
+elif data_name_train:
+    df_train = upload_data(os.path.join("Data Sets",data_name_train))
+    #st.write(df_train.head())  # Display the first few rows
+    data_sets["Training Set"] = {}
+    data_sets["Training Set"]["Name"] = data_name_train
+    data_sets["Training Set"]["Data"] = df_train
 
 
 test_sets = []
-if test_uploaded_file:
+if data_options == "Upload a dataset" and test_uploaded_file:
 
     data_sets["Testing Set"] = {}
 
@@ -441,22 +528,31 @@ if test_uploaded_file:
         test_sets.append(file.name)
 
         df_test = load_data(file.name, file)
-
         #st.write(df_test.head())  # Display the first few rows
 
         data_sets["Testing Set"][file.name] = df_test
+elif len(data_names_test) > 0:
+    data_sets["Testing Set"] = {}
+
+    for data_name_test in data_names_test:
+        test_sets.append(data_name_test)
+        #st.write(f"Dataset: {file.name}")
+        df_test = upload_data(os.path.join("Data Sets",data_name_test))
+        #st.write(df_test.head())  # Display the first few rows
+        data_sets["Testing Set"][data_name_test] = df_test
+
 else:
     data_sets["Testing Set"] = {}
 
 #st.write(test_sets)
 
-if main_uploaded_file and not completed_index_file:
+if (main_uploaded_file or data_name_train) and not completed_index_file:
     st.info("A dataset has been uploaded. Now generate a matching index file to edit.")
-    gen_idx(df_train, main_uploaded_file.name)
+    gen_idx(df_train, data_sets["Training Set"]["Name"])
 
     
 # Add feedback to the user once they've uploaded their completed file.
-elif main_uploaded_file and completed_index_file:
+elif (main_uploaded_file or data_name_train) and completed_index_file:
 
     # upload the index file
     index_set = pd.read_excel(completed_index_file)
@@ -487,7 +583,7 @@ elif main_uploaded_file and completed_index_file:
 # --- Step 3: Configure Training Pipeline ---
 st.header("Step 3: Configure Training Pipeline")
 
-if main_uploaded_file and completed_index_file and is_valid==False:
+if (main_uploaded_file or data_name_train) and completed_index_file and is_valid==False:
     configuration_dic = None
     # choose how you configure your model(s)
     configure_options = st.radio("Choose an option:", ["Upload a file", "User Customization"])
@@ -520,6 +616,8 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         cutMissingRows = st.radio("Cut Rows with Missing Values?", ("True", "False"), horizontal=True)
         if cutMissingRows == 'True':
             cut_threshold = st.slider("Minimum % of Non-Null Values Required", 0.0, 1.0, 0.6)
+        else:
+            cut_threshold = None
             
     with st.expander("▶️ Feature Scaling & Transformation"):
         scaling = st.radio("Scale Numerical Features?", ("True", "False"), index=1, horizontal=True)

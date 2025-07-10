@@ -82,6 +82,7 @@ import catboost
 import shap
 from scipy import stats
 import os
+import sys
 import joblib as joblib
 from joblib import dump, load
 import json
@@ -96,7 +97,7 @@ rstate = 12
 
 
 # import module
-import datetime
+from datetime import datetime
 import pprint
 import pymongo
 from pymongo import MongoClient
@@ -153,9 +154,15 @@ db = client.machine_learning_database
 models = db.models
 # create the results if it does not already exists
 results = db.results
+# create the results if it does not already exists
+datasets = db.datasets
 # get all unique exp. names from results collection
 #exp_names = db.models.distinct("exp_name", {"type": "AutoGulon"})
 exp_names = db.models.distinct("exp_name")
+# get all training data names from database
+data_names_train = db.datasets.distinct("data_name", {"type": "Train"})
+# get all testing data names from database
+data_names_list_test = db.datasets.distinct("data_name", {"type": "Test"})
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -225,7 +232,7 @@ sample_configuration_dic = {
 
 # function to train and generate AutoGulon models
 def train_and_generate_models(data_sets, project_name, configuration_dic, unique_value_threshold=10):
-    st.write(configuration_dic)
+    #st.write(configuration_dic)
     #print(num_bag_folds)
     #print(num_stack_levels)    #print(num_bag_setss)
     #print(keep_only_best)
@@ -250,6 +257,24 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
         save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
         save_data(index_set['Name'], index_set['Data'], os.path.join(project_folder, index_set['Name']))
 
+        if train_set['Name'] not in data_names_train:
+            # get the current time
+            current_datetime = datetime.now()
+            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            # save train set into data folder and database
+            os.makedirs("Data Sets", exist_ok=True)
+            save_data(train_set['Name'], train_set['Data'], os.path.join("Data Sets", train_set['Name']))
+            dataset_train = {
+                    "data_name": train_set['Name'],
+                    "type": "Train",
+                    "time_saved": current_time,
+                    "data_path": os.path.join("Data Sets", train_set['Name'])
+            }
+            datasets.insert_one(dataset_train)
+        else:
+            st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database", icon="ℹ️")
+
+
         # get proper data name
         if train_set['Name'].endswith('.xlsx'):
             data_name = train_set["Name"][:-len('.xlsx')]
@@ -269,6 +294,24 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
         for _, (testing_set_name, testing_set) in enumerate(test_sets.items()):
             # save the test sets in folder system
             save_data(testing_set_name, testing_set, os.path.join(project_folder, testing_set_name))
+
+            if testing_set_name not in data_names_list_test:
+                # get the current time
+                current_datetime = datetime.now()
+                current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                    
+                # save test set in data folder and database
+                os.makedirs("Data Sets", exist_ok=True)
+                save_data(testing_set_name, testing_set, os.path.join("Data Sets", testing_set_name))
+                dataset_test = {
+                        "data_name": testing_set_name,
+                        "type": "Test",
+                        "time_saved": current_time,
+                        "data_path": os.path.join("Data Sets", testing_set_name)
+                }
+                datasets.insert_one(dataset_test)
+            else:
+                st.info(f"Testing Dataset {testing_set_name} of the same name is already in the database", icon="ℹ️")
 
             # prep testing sets
             df_test = refine_binary_outcomes(testing_set, label_cols)
@@ -342,21 +385,27 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
     st.success(f'Training is Complete!')
 
     # save the overall model into a joblib file
-    pathway_name = f"{project_folder}/{project_name}_model.joblib"
+    pathway_name = f"{project_folder}/{project_name}_models.joblib"
     joblib.dump(models_dictonary, pathway_name)
 
     # Finalize Experiment
     st.write("---")
     with st.spinner("Finalizing experiment: saving metadata and final reports..."):
+        
+        if configuration_dic['custom_hyperparameters'] != None:
+            configuration_dic['custom_hyperparameters'] = convert_to_json_compatible(configuration_dic['custom_hyperparameters'])
 
-        configuration_dic['custom_hyperparameters'] = convert_to_json_compatible(configuration_dic['custom_hyperparameters'])
+        # get the current time
+        current_datetime = datetime.now()
+        current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         model = {
                 "exp_name": project_name,
                 "type": "AutoGulon",
                 "model_path": pathway_name,
                 "input variables": input_cols,
-                "configuration": configuration_dic
+                "configuration": configuration_dic,
+                "time_created": current_time
         }
 
         models.insert_one(model) # insert one dictonary 
@@ -478,27 +527,50 @@ else:
 
 # --- Step 2: Upload Data (Dynamic UI) ---
 st.header("Step 2: Upload Data")
-col1, col2 = st.columns(2)
-with col1:
-    # Use a consistent key for the main dataset uploader
-    dataset_uploader_key = "main_dataset_uploader"
-    
-    if st.session_state.training_method == "Train/Test Split":
-        main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
-        test_uploaded_file = None
-    else: # Dedicated Test Set
-        main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
-        test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
 
-with col2:
-    completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
+#user chooses whatever to upload the data or retrive a past data set from the database
+data_options = st.radio("Choose an option:", ["Upload a dataset", "Retrive dataset from database"])
+
+if data_options == "Upload a dataset":
+    data_name_train = None
+    data_names_test = []
+    col1, col2 = st.columns(2)
+    with col1:
+        # Use a consistent key for the main dataset uploader
+        dataset_uploader_key = "main_dataset_uploader"
+        
+        if st.session_state.training_method == "Train/Test Split":
+            main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
+            test_uploaded_file = None
+        else: # Dedicated Test Set
+            main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
+            test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
+
+    with col2:
+        completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
+else:
+    main_uploaded_file = None
+    test_uploaded_file = None
+
+    # Dropdown to select the training dataset
+    data_name_train = st.selectbox("Select a Training Dataset from the database:", data_names_train, index=None, placeholder="Select One...")
+
+    if st.session_state.training_method == "Dedicated Test Set":
+        # Dropdown to select the tesitng dataset
+        data_names_test = st.multiselect("Select a Testing Dataset from the database:", data_names_list_test)
+    else:
+        data_names_test = []
+
+    # Open and wrap the file like an uploaded file (binary mode)
+    if data_name_train is not None:
+        completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
 
 st.write("")
 
 # upload the dataset(s)
 
 # training sets
-if main_uploaded_file:
+if data_options == "Upload a dataset" and main_uploaded_file:
     train_set = main_uploaded_file.name
     #st.write(train_set)
 
@@ -509,31 +581,44 @@ if main_uploaded_file:
     data_sets["Training Set"] = {}
     data_sets["Training Set"]["Name"] = main_uploaded_file.name
     data_sets["Training Set"]["Data"] = df_train
-
+elif data_name_train:
+    df_train = upload_data(os.path.join("Data Sets",data_name_train))
+    #st.write(df_train.head())  # Display the first few rows
+    data_sets["Training Set"] = {}
+    data_sets["Training Set"]["Name"] = data_name_train
+    data_sets["Training Set"]["Data"] = df_train
+    
 # testing sets
 test_sets = []
-if test_uploaded_file:
+if data_options == "Upload a dataset" and test_uploaded_file:
 
     data_sets["Testing Set"] = {}
-
     for file in test_uploaded_file:
         #st.subheader(f"Dataset: {file.name}")
         test_sets.append(file.name)
-
         df_test = load_data(file.name, file)
-
         #st.write(df_test.head())  # Display the first few rows
-
         data_sets["Testing Set"][file.name] = df_test
+
+elif len(data_names_test) > 0:
+    data_sets["Testing Set"] = {}
+
+    for data_name_test in data_names_test:
+        test_sets.append(data_name_test)
+        #st.write(f"Dataset: {file.name}")
+        df_test = upload_data(os.path.join("Data Sets",data_name_test))
+        #st.write(df_test.head())  # Display the first few rows
+        data_sets["Testing Set"][data_name_test] = df_test
+
 else:
     data_sets["Testing Set"] = {}
 
-if main_uploaded_file and not completed_index_file:
+if (main_uploaded_file or data_name_train) and not completed_index_file:
     st.info("A dataset has been uploaded. Now generate a matching index file to edit.")
-    gen_idx(df_train, main_uploaded_file.name)
+    gen_idx(df_train, data_sets["Training Set"]["Name"])
 
 # Add feedback to the user once they've uploaded their completed file.
-elif main_uploaded_file and completed_index_file:
+elif (main_uploaded_file or data_name_train) and completed_index_file:
 
     # upload the index file
     index_set = pd.read_excel(completed_index_file)
@@ -564,7 +649,7 @@ elif main_uploaded_file and completed_index_file:
 # --- Step 3: Configure Training Pipeline ---
 st.header("Step 3: Configure Training Pipeline")
 
-if main_uploaded_file and completed_index_file and is_valid==False:
+if (main_uploaded_file or data_name_train) and completed_index_file and is_valid==False:
     configuration_dic = None
     # choose how you configure your model(s)
     configure_options = st.radio("Choose an option:", ["Upload a file", "User Customization"], help="User can either use the UI customization to set up the experiment or they can generate a configuration file where they can also set up a hyperparameter feature space.")
@@ -643,18 +728,21 @@ if configure_options == "User Customization":
             searcher = st.selectbox("Searching Strategy", ['auto', 'random', 'bayesopt', 'grid'], help="The searcher in AutoGluon's hyperparameter_tune_kwargs specifies how hyperparameter configurations are selected during hyperparameter tuning.")
 
             custom_hyperparameter_tune_kwargs = {'num_trials': num_trials, 'scheduler': scheduler, 'searcher': searcher}
+
+            # File uploader for file for the feature space
+            uploaded_custom_hyperparameters= st.file_uploader("Upload a Hyperparameter Feature Space")
+
+            if uploaded_custom_hyperparameters:
+                custom_hyperparameters_json = json.load(uploaded_custom_hyperparameters)
+                custom_hyperparameters = convert_from_json_compatible(custom_hyperparameters_json)
+                st.write(custom_hyperparameters)
+            else:
+                custom_hyperparameters = None
+
         else:
             custom_hyperparameter_tune_kwargs = None
-
-        # File uploader for file for the feature space
-        uploaded_custom_hyperparameters= st.file_uploader("Upload a Hyperparameter Feature Space")
-
-        if uploaded_custom_hyperparameters:
-            custom_hyperparameters_json = json.load(uploaded_custom_hyperparameters)
-            custom_hyperparameters = convert_from_json_compatible(custom_hyperparameters_json)
-            st.write(custom_hyperparameters)
-        else:
             custom_hyperparameters = None
+
 
         # download a template file for the feature space
         st.download_button(
@@ -698,7 +786,8 @@ elif configure_options == "Upload a file":
     if uploaded_config_file:
         configuration_dic = json.load(uploaded_config_file)
         #custom_hyperparameters = configuration_dic['custom_hyperparameters']
-        configuration_dic['custom_hyperparameters'] = convert_from_json_compatible(configuration_dic['custom_hyperparameters'])
+        if custom_hyperparameters != None:
+            configuration_dic['custom_hyperparameters'] = convert_from_json_compatible(configuration_dic['custom_hyperparameters'])
         st.write(configuration_dic)
 
 else:
@@ -713,3 +802,6 @@ if configuration_dic != None and st.button("Start Training", type="primary", use
     models_dictonary = train_and_generate_models(data_sets, project_name, configuration_dic, unique_value_threshold=unique_value_threshold)
 
     st.write(models_dictonary)
+
+    st.subheader("Jump to Testing the Models") # redirect to the testing section
+    st.page_link("pages/Testing_AutoGulon_Models.py", label="Test Models", icon="🧪")

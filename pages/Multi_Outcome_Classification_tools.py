@@ -71,6 +71,7 @@ import catboost
 import shap
 from scipy import stats
 import os
+import hashlib
 import joblib as joblib
 from joblib import dump, load
 import json
@@ -1039,7 +1040,7 @@ def multi_outcome_stratified_binary(df, input_cols, label_cols, numeric_cols, ca
                 #explaining model
                 print(X_test_fold.shape)
                 explainer = shap.Explainer(estimator.predict, X_test_fold)
-                shap_values_fold = explainer(X_test_fold, max_evals=2000)
+                shap_values_fold = explainer(X_test_fold, max_evals=(2 * (X_test_fold.shape[1] + 1)))
                 print(shap_values_fold.shape)
 
                 shap_values_fold_array = shap_values_fold.values  # Extract SHAP values from Explanation objects
@@ -1438,7 +1439,7 @@ def multi_outcome_repeated_stratified_binary(df, input_cols, label_cols, numeric
                 #explaining model
                 print(X_test_fold.shape)
                 explainer = shap.Explainer(estimator.predict, X_test_fold)
-                shap_values_fold = explainer(X_test_fold, max_evals=2000)
+                shap_values_fold = explainer(X_test_fold, max_evals=(2 * (X_test_fold.shape[1] + 1)))
                 print(shap_values_fold.shape)
 
                 shap_values_fold_array = shap_values_fold.values  # Extract SHAP values from Explanation objects
@@ -1631,6 +1632,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         if (y_train == 1).sum() < 10:
             print("Too little postive outcomes to predict (after removing early cases)")
             f.write("\nToo little postive outcomes to predict (after removing early cases)")
+            st.error(f"Too little postive outcomes to predict outcome: {label_col} on {algorithm}.") 
             removed_label_cols.append(label_col)
             continue
             
@@ -2127,6 +2129,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         if (y_train == 1).sum() < 10:
             print("Too little postive outcomes to predict (after removing early cases)")
             f.write("\nToo little postive outcomes to predict (after removing early cases)")
+            st.error(f"Too little postive outcomes to predict outcome: {label_col} on {algorithm}.") 
             removed_label_cols.append(label_col)
             continue
             
@@ -2287,6 +2290,19 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         roc_train_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
         roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
         #st.write(roc_train_filename)
+        x = len(roc_train_filename)
+        st.write(f"Length of ROC file path name is {x}")
+        # check if path names are too long
+        if len(roc_train_filename) >= 160:
+            # if path name is too long, shorten it 
+            st.info(f"File path to save ROC chart (Train) for {algorithm} on {label_col} is too long. Will shorthen the path name")
+            sanitize_label_col = sanitize_label_col[:1]
+            roc_train_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
+        if len(roc_test_filename) >= 160:
+            st.info(f"File path to save ROC chart (Test) for {algorithm} on {label_col} is too long. Will shorthen the path name")
+            sanitize_label_col = sanitize_label_col[:1]
+            roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
+        
         try:
             results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list, dtype=float), np.array(probas_train_list, dtype=float), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
         except:
@@ -2438,7 +2454,7 @@ def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo
         plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
         explainer = shap.Explainer(model.predict, X_test)
         #shap_values = explainer.shap_values(X_test)
-        shap_values = explainer(X_test)
+        shap_values = explainer(X_test, max_evals=(2 * (X_test.shape[1] + 1)))
                 
         try:
             shap.summary_plot(shap_values, X_test, plot_type='dot', max_display = 10, show=False) 

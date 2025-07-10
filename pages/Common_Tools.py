@@ -52,6 +52,7 @@ import catboost
 import shap
 from scipy import stats
 import os
+import hashlib
 import joblib as joblib
 from joblib import dump, load
 import json
@@ -145,6 +146,13 @@ def sanitize_filename(filename):
     for char in invalid_chars:
         filename = filename.replace(char, '_')
     return filename
+
+def shorten_component(text, max_len=50):
+    """Shortens a component to max_len safely, using hash suffix if needed."""
+    if len(text) <= max_len:
+        return text
+    hash_suffix = hashlib.md5(text.encode()).hexdigest()[:6]
+    return text[:max_len - 7] + "_" + hash_suffix
 
 # Python code to remove whitespace
 def remove(string):
@@ -1188,10 +1196,10 @@ def refine_binary_outcomes(df, label_cols):
             first_label = df[label_col].unique()[0]
             second_label = df[label_col].unique()[1]
     
-            if first_label in df[label_col].tolist() and second_label in df_train[df].tolist():
+            if first_label in df[label_col].tolist() and second_label in df[label_col].tolist():
                 df[label_col] = df[label_col].map({first_label: 0, second_label: 1}).astype(int)
 
-
+    #st.write(df)
     return df
 
 
@@ -1412,12 +1420,12 @@ def get_avg_results_dic(results_dictonary):
     results_dictonary_avg = {}
 
     for _, (algo, data) in enumerate(results_dictonary.items()):
-        st.write(algo)
+        #st.write(algo)
         #st.write(metrics)
         results_dictonary_avg[algo] = {}
 
         for _, (outcome, values) in enumerate(data.items()):
-            st.write(outcome)
+            #st.write(outcome)
             #t.write(values)
             metric_dic_train = {}
             metric_dic_test = {}

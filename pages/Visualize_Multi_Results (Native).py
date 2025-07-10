@@ -201,6 +201,13 @@ results = db.results
 # get all unique exp. names from results collection
 exp_names = db.results.distinct("exp_name", {"type": "Native"})
 
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="(Native) Visualize ML Results",
+    page_icon="📊",
+    layout="wide"
+)
+
 # back button to return to main page
 if st.button('Back'):
     st.session_state.df_total = pd.DataFrame()

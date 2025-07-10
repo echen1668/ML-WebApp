@@ -44,7 +44,7 @@ with left_column:
     # AutoGulon Models
     st.subheader("🤖 Test AutoGulon ML Models")
     st.write("Upload and Test AutoGulon ML Models.")
-    st.page_link("pages/Testing_AutoGulon_Models_W_FS.py", label="Test AutoGulon Models", icon="🧪")
+    st.page_link("pages/Testing_AutoGulon_Models.py", label="Test AutoGulon Models", icon="🧪")
 
 
 with right_column:

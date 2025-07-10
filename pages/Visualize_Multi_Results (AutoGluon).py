@@ -7,6 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import metrics
 from sklearn.metrics import roc_curve
+from sklearn.metrics import accuracy_score
 from sklearn.metrics import auc
 import csv
 #import magic 
@@ -41,6 +42,10 @@ from roctools import full_roc_curve, plot_roc_curve
 if "outcome_dic_total" not in st.session_state:
     st.session_state.outcome_dic_total = {}
 
+# Initialize the list of outcome options
+if "outcome_options" not in st.session_state:
+        st.session_state.outcome_options = []
+
 def plot_roc(data, options):
     # Plot ROC curves
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -48,12 +53,13 @@ def plot_roc(data, options):
     # go throught each outcome to plot its ROC curve
     for option in options:
         #st.write(option)
-        name, outcome = option.rsplit('-', 1)
-        #st.write(name)
-        if "evaluation" in list(data[name][outcome].keys()):
-            values = data[name][outcome]["evaluation"] # get the ground truths and probs for the specified outcome
+        other, outcome = option.rsplit('-', 1)
+        exp_name, test_set = other.rsplit('-', 1)
+
+        if "evaluation" in list(data[exp_name][test_set][outcome].keys()):
+            values = data[exp_name][test_set][outcome]["evaluation"] # get the ground truths and probs for the specified outcome
         else: 
-            values = data[name][outcome]
+            values = data[exp_name][test_set][outcome]
 
         y_true = [int(x) for x in values["Ground Truths"]]
         y_prob = [x[1] for x in values["Probability Scores"]]
@@ -99,9 +105,10 @@ def plot_shap(data, options):
     option = st.selectbox("Select an experiment", options)
 
     #st.write(option)
-    name, outcome = option.rsplit('-', 1)
+    other, outcome = option.rsplit('-', 1)
+    exp_name, test_set = other.rsplit('-', 1)
 
-    feature_importance = data[name][outcome]["feature importance"] # get the feature importance values
+    feature_importance = data[exp_name][test_set][outcome]["feature importance"] # get the feature importance values
     df_feature_importance = pd.DataFrame(feature_importance)
     st.write(df_feature_importance)
 
@@ -111,7 +118,7 @@ def plot_shap(data, options):
     # plot the 10 top most important features
     fig = plt.figure(figsize=(8, 6))
     ax = df_feature_importance['importance (abs)'][:10].plot(kind='bar')
-    plt.title(f'Feature Importance for {outcome} on {name} (Top 10)')
+    plt.title(f'Feature Importance for {outcome} on {exp_name} (Top 10)')
 
     # Add text labels
     for i, v in enumerate(df_feature_importance['importance (abs)'][:10]):
@@ -142,7 +149,14 @@ models = db.models
 results = db.results
 
 # get all unique exp. names from results collection
-exp_names = db.results.distinct("exp_name", {"type": "AutoGluon"})
+exp_names = db.results.distinct("exp_name", {"type": "AutoGulon"})
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="(AutoGulon) Visualize ML Results",
+    page_icon="📊",
+    layout="wide"
+)
 
 # back button to return to main page
 if st.button('Back'):
@@ -151,16 +165,15 @@ if st.button('Back'):
     results_dict = None
     st.session_state.outcome_dic_total = {}
     list_of_outcomes = []
-    outcome_options= []
+    st.session_state.outcome_options = []
     outcome_dic = None
     st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
 
 # Title
-st.title("Visualize ML Results (AutoGluon)")
+st.title("🤖 Visualize ML Results (AutoGulon)")
 
 st.write("This page helps you visualize the results of your ML model(s).")
 st.write("")  # Add for more space
-st.write("")
 
 # Dropdown to select the experiment to display results from
 exp_name = st.selectbox("Select a saved ML experiment", exp_names)
@@ -177,7 +190,7 @@ test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 # Dropdown to select the experiment to display results from
 test_set = st.selectbox("Select the test set used", test_sets)
 
-if st.button('Add Results'):
+if st.button('➕ Add Results', help="Add the result to the collective table."):
     # get the final results_dict
     results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 
@@ -188,7 +201,7 @@ else:
 outcome_dic = results_dict['results_dic'] if results_dict is not None else None
 
 # check if results_dict is AutoGulon
-if outcome_dic is not None and results_dict['type'] != 'AutoGluon':
+if outcome_dic is not None and results_dict['type'] != 'AutoGulon':
     st.write("Results is not AutoGulon.")
     results_dict = None
     outcome_dic = None
@@ -225,14 +238,26 @@ if results_dict is not None:
     except Exception as e:
         st.error(f"Error loading file: {e}")
 
+# button to remove a specific experiment from the overall table and outcome_dic_total
+if st.button("➖ Remove Result", help="Remove the result to the collective table."):
+    st.session_state.df_total = st.session_state.df_total[~(st.session_state.df_total["Exp_Name-Test Set"] == f'{exp_name}-{test_set}')] # remove from table
+    
+    if exp_name in list(st.session_state.outcome_dic_total.keys()) and test_set in list(st.session_state.outcome_dic_total[exp_name]):
+        del st.session_state.outcome_dic_total[exp_name][test_set] # remove from outcome_dic_total
+        if len(st.session_state.outcome_dic_total[exp_name]) == 0:
+            del st.session_state.outcome_dic_total[exp_name]
+
+    # edit the ROC plot to remove all plots that involved the removed result
+    st.session_state.outcome_options = [item for item in st.session_state.outcome_options if f'{exp_name}-{test_set}' not in item]
+
 # button to reset the table
-if st.button('Clear All Data'):
+if st.button('❌ Clear All Data', help="Clear the collective table."):
     st.session_state.df_total = pd.DataFrame()
     exp_names = None
     results_dict = None
     st.session_state.outcome_dic_total = {}
     list_of_outcomes = []
-    outcome_options= []
+    st.session_state.outcome_options = []
     outcome_dic = None
 
 # Display the DataFrame
@@ -247,7 +272,7 @@ if len(st.session_state.df_total) != 0:
     options = [col for col in st.session_state.df_total.columns if col not in columns_to_exclude]
         
     # Dropdown to select the metric to disply in a barchart
-    metric = st.selectbox("Select a Metric", options)
+    metric = st.selectbox("Select a Metric", options, help="Select a metric to view performace.")
 
     # error bars
     error_y = None # default
@@ -297,21 +322,33 @@ st.write("")
 st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve</h2>", unsafe_allow_html=True)
 
 # add outcome_dic to st.session_state.outcome_dic_total
-if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or f'{exp_name}-{test_set}' not in list(st.session_state.outcome_dic_total.keys())) and outcome_dic is not None:
-    st.session_state.outcome_dic_total[f'{exp_name}-{test_set}'] = outcome_dic
+if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
+    if exp_name not in list(st.session_state.outcome_dic_total.keys()):
+        st.session_state.outcome_dic_total[exp_name] = {}
+
+    st.session_state.outcome_dic_total[exp_name][test_set] = outcome_dic
 
 
 if len(list(st.session_state.outcome_dic_total.keys())) != 0:
     first_item = list(st.session_state.outcome_dic_total)[0]
     #st.write(first_item)
             
-    list_of_outcomes = [
-                f"{exp}-{outcome}"
-                for exp, outcomes in st.session_state.outcome_dic_total.items()
-                for outcome in outcomes.keys()
-    ]
-else:
-    list_of_outcomes = []
+    exp = st.selectbox("Select the experiment", list(st.session_state.outcome_dic_total))
+    
+    test = st.selectbox("Select the test set", list(st.session_state.outcome_dic_total[exp].keys()))
+
+    # Select multiple outcomes for the ROC curve plot
+    outcome = st.selectbox("Select the outcome", st.session_state.outcome_dic_total[exp][test].keys())
+
+    if outcome is not None:
+
+        if st.button('Plot'):
+            if f'{exp}-{test}-{outcome}' not in st.session_state.outcome_options:
+                st.session_state.outcome_options.append(f'{exp}-{test}-{outcome}')
+
+    # button to reset the table
+    if st.button('Clear All Plots', help="Clear the plot chart."):
+        st.session_state.outcome_options = []
             
 #st.write(list_of_outcomes)
 
@@ -333,13 +370,10 @@ if st.session_state.show_values_outcome_dic:
 
 st.title("ROC Curve Analysis")
 
-# Select multiple outcomes for the ROC curve plot
-outcome_options = st.multiselect("Select Outcomes to Plot", list_of_outcomes)
-
-if outcome_options:
-    plot_roc(st.session_state.outcome_dic_total, outcome_options)
+if st.session_state.outcome_options and st.session_state.outcome_dic_total:
+    plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
 st.title("Feature Importance Analysis")
         
-if outcome_options:
-    plot_shap(st.session_state.outcome_dic_total, outcome_options)
+if st.session_state.outcome_options and st.session_state.outcome_dic_total:
+    plot_shap(st.session_state.outcome_dic_total, st.session_state.outcome_options)
