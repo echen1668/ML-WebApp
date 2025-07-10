@@ -71,6 +71,7 @@ import catboost
 import shap
 from scipy import stats
 import os
+import hashlib
 import joblib as joblib
 from joblib import dump, load
 import json
@@ -2289,6 +2290,19 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         roc_train_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
         roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
         #st.write(roc_train_filename)
+        x = len(roc_train_filename)
+        st.write(f"Length of ROC file path name is {x}")
+        # check if path names are too long
+        if len(roc_train_filename) >= 160:
+            # if path name is too long, shorten it 
+            st.info(f"File path to save ROC chart (Train) for {algorithm} on {label_col} is too long. Will shorthen the path name")
+            sanitize_label_col = sanitize_label_col[:1]
+            roc_train_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
+        if len(roc_test_filename) >= 160:
+            st.info(f"File path to save ROC chart (Test) for {algorithm} on {label_col} is too long. Will shorthen the path name")
+            sanitize_label_col = sanitize_label_col[:1]
+            roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
+        
         try:
             results_array_train, image_roc_train = plot_averoc_curve(np.array(ground_truth_train_list, dtype=float), np.array(probas_train_list, dtype=float), withCI=True, plot_title=f"Average ROC Curve for {label_col} by {algorithm} (Training Set)", fig_name=roc_train_filename)
         except:

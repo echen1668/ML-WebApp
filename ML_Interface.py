@@ -44,11 +44,11 @@ st.write("")
 st.write("")
 
 # 4. Link to the Deletion Page
-st.subheader("🗒️ Experiments List")
-st.write("Look at a list of all the ML experiments and access of information about them.")
+st.subheader("🗒️ Database List")
+st.write("Look at a list of all the ML experiments and datasets saved and access of information about them.")
 st.page_link("pages/Experiment_Info.py", label="Go to List", icon="🗒️") 
 
 # 5. Link to the Deletion Page
-st.subheader("🔧 Manage Experiments and Results")
-st.write("Search for one or more experiments/results from the database and either remove it from both the database and file system or rename it.")
+st.subheader("🔧 Manage Experiments, Results, and Datasets")
+st.write("Search for one or more experiments/results/dataset from the database and either remove it from both the database and file system or rename it.")
 st.page_link("pages/Manage_Items.py", label="Go to Management", icon="🔧")

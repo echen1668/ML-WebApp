@@ -52,6 +52,7 @@ import catboost
 import shap
 from scipy import stats
 import os
+import hashlib
 import joblib as joblib
 from joblib import dump, load
 import json
@@ -145,6 +146,13 @@ def sanitize_filename(filename):
     for char in invalid_chars:
         filename = filename.replace(char, '_')
     return filename
+
+def shorten_component(text, max_len=50):
+    """Shortens a component to max_len safely, using hash suffix if needed."""
+    if len(text) <= max_len:
+        return text
+    hash_suffix = hashlib.md5(text.encode()).hexdigest()[:6]
+    return text[:max_len - 7] + "_" + hash_suffix
 
 # Python code to remove whitespace
 def remove(string):
