@@ -7,10 +7,15 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Page Content ---
+col1, col2, col3 = st.columns((3, 2, 0.5))
 
-st.title("🔬 ML Experimentation Hub")
-st.markdown("Training, testing, and visualizing machine learning models.")
+# --- Page Content ---
+col1.title("🔬 ML Experimentation Hub")
+col1.markdown("Training, testing, and visualizing machine learning models.")
+
+if col3.button("Instructions Page", type="primary", icon='📖'):
+    st.switch_page("pages/Instructions_Page.py") # switch to instructions page
+
 
 st.divider()
 
