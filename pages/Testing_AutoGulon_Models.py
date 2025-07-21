@@ -35,7 +35,7 @@ import pprint
 import pymongo
 from pymongo import MongoClient
 
-from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, upload_data
+from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, upload_data, save_data
 from roctools import full_roc_curve, plot_roc_curve
 
 # connect to database
@@ -49,6 +49,9 @@ models = db.models
 
 # create the results if it does not already exists
 results = db.results
+
+# create the results if it does not already exists
+datasets = db.datasets
 
 # get all unique exp. names from results collection
 exp_names = db.models.distinct("exp_name", {"type": "AutoGulon"})
@@ -382,6 +385,7 @@ exp_dic = models.find_one({"exp_name": exp_name})
 model_path = exp_dic['model_path'] if exp_dic is not None else None
 model_type = exp_dic['type'] if exp_dic is not None else None
 input_variables = exp_dic['input variables'] if exp_dic is not None else None
+outcomes = exp_dic['outcomes'] if exp_dic is not None else None
 
 # check if results_dict is AutoGulon
 if model_type != 'AutoGulon':
@@ -422,8 +426,18 @@ if data_options == "Upload a testing set":
             st.write("### Test Set:")
             st.dataframe(test_set)
 
+            # check if upload test set has the require input and output variables
+            test_cols = test_set.columns.to_list()
+            # Check if  outcomes is a subset of test_cols
+            is_subset = all(x in test_cols for x in input_variables + outcomes)
+            if is_subset == False:
+                st.error("Uploaded test set does not have the required variables.")
+            else:
+                is_subset = True
+
         except Exception as e:
             st.error(f"Error loading file: {e}")
+            is_subset = False
 
     train_set = None
     # upload the train set
@@ -442,8 +456,18 @@ if data_options == "Upload a testing set":
             st.write("### Train Set:")
             st.dataframe(train_set)
 
+            # check if upload train set has the require input and output variables
+            train_cols = train_set.columns.to_list()
+            # Check if  outcomes is a subset of test_cols
+            is_subset = all(x in train_cols for x in input_variables + outcomes)
+            if is_subset == False:
+                st.error("Uploaded train set does not have the required variables.")
+            else:
+                is_subset = True
+
         except Exception as e:
             st.error(f"Error loading file: {e}")
+            is_subset = False
 else:
     uploaded_test_set = None
     uploaded_train_set = None
@@ -455,8 +479,16 @@ else:
         test_set = upload_data(os.path.join("Data Sets",data_name_test))
         # Replace inf and -inf with NaN
         test_set = test_set.replace([np.inf, -np.inf], np.nan)
+
+        # check if upload test set has the require input and output variables
+        test_cols = test_set.columns.to_list()
+        # Check if outcomes is a subset of test_cols
+        is_subset = all(x in test_cols for x in input_variables + outcomes)
+        if is_subset == False:
+            st.error("Uploaded test set does not have the required variables.")
     else:
         test_set = None
+        is_subset = False
 
     # Dropdown to select the training dataset
     data_name_train = st.selectbox("(Optional) Select a Training Dataset from the database:", data_names_train, index=None, placeholder="Select One...")
@@ -465,8 +497,18 @@ else:
         train_set = upload_data(os.path.join("Data Sets",data_name_train))
         # Replace inf and -inf with NaN
         train_set = train_set.replace([np.inf, -np.inf], np.nan)
+
+        # check if upload train set has the require input and output variables
+        train_cols = train_set.columns.to_list()
+        # Check if  outcomes is a subset of test_cols
+        is_subset = all(x in train_cols for x in input_variables + outcomes)
+        if is_subset == False:
+            st.error("Uploaded train set does not have the required variables.")
+        else:
+            is_subset = True
     else:
         train_set = None
+        is_subset = False
 
 # --- Step 3: Configure Testing Pipeline ---
 st.header("Step 3: Configure Testing Pipeline")
@@ -475,7 +517,7 @@ if model_path is not None:
     try:
         # Determine file type and read accordingly
         models_dic = joblib.load(model_path)
-        outcomes = list(models_dic.keys())
+        #outcomes = list(models_dic.keys())
         all_options = ["Select All"] + outcomes
 
         # Select multiple outcomes for ML model testing
@@ -511,57 +553,100 @@ test_set_name = st.text_input("Enter Name of the Test Set", "test set")
 # Dropdown to select the threshold to use to test the models
 threshold_type = st.selectbox("Select a Threshold type", ['youden', 'mcc', 'ji', 'f1'])
 
-if input_variables is not None and model_path is not None and (uploaded_test_set or data_name_test) is not None and len(selected_outcomes)!=0:
+if input_variables is not None and model_path is not None and (uploaded_test_set or data_name_test) is not None and len(selected_outcomes)!=0 and is_subset==True:
     # --- Step 4: Execute ---
     st.header("Step 4: Begin Testing")
 
     # button to test the models
-    if st.button('Test the models'):
+    if st.button('Test the models 🧪'):
 
-        # call the function to test models
-        results_dictonary, outcome_dic, feature_importance_dic = test_model(models_dic, test_set, input_variables, selected_outcomes, train_data_raw=train_set, cutoff_index=threshold_type)
+        if db.results.find_one({"exp_name": exp_name, "test set": test_set_name}) == None:
 
-        #st.write(results_dictonary)
-        #st.write(feature_importance_dic)
+            #save the test set if it hasn't already
+            if data_name_test == None and uploaded_test_set.name not in data_names_list_test:
+                st.info(f"Testing Dataset is saving in the database", icon="ℹ️")
+                # create a list of ML exp.'s that the dataset was used on
+                exp_list = [exp_name]
+                #get the current time
+                current_datetime = datetime.now()
+                current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                # save test set in data folder and database
+                os.makedirs("Data Sets", exist_ok=True)
+                save_data(uploaded_test_set.name, test_set, os.path.join("Data Sets", uploaded_test_set.name))
+                dataset_test = {
+                        "data_name": uploaded_test_set.name,
+                        "type": "Test",
+                        "time_saved": current_time,
+                        "data_path": os.path.join("Data Sets", uploaded_test_set.name),
+                        "exps used": exp_list
+                }
+                datasets.insert_one(dataset_test)
+            else:
+                st.info(f"Testing Dataset of the same name is already in the database", icon="ℹ️")
 
-        algorithm_folder = os.path.join("Results", exp_name, test_set_name)
-        os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
+                test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+                # update the dataset in datbase to trackdown the list of ML exps the set was used on
+                dataset = datasets.find_one({"data_name": test_name, "type": "Test"})
+                # Get the current list of experiments or initialize it if not present
+                exp_list = dataset.get("exps used", [])
+                # Add the current project name if it's not already in the list
+                if exp_name not in exp_list:
+                    exp_list.append(exp_name)
 
-        path_name = f"{algorithm_folder}/{exp_name}_results.joblib"
-        joblib.dump(results_dictonary, path_name)
+                datasets.update_one(
+                    {"data_name": test_name, "type": "Test"}, # Filter condition
+                    {"$set": { "exps used": exp_list }} # Update operation
+                )
 
-        # generate the feature importance charts
-        chart_name = f"{algorithm_folder}/Feature Importance"
-        plot_feature_importance(feature_importance_dic, chart_name)
+            # call the function to test models
+            results_dictonary, outcome_dic, feature_importance_dic = test_model(models_dic, test_set, input_variables, selected_outcomes, train_data_raw=train_set, cutoff_index=threshold_type)
 
-        # generate the results table
-        results_df = generate_results_table(results_dictonary, selected_outcomes)
-        table_name = f"{algorithm_folder}/{exp_name}_results.xlsx"
+            #st.write(results_dictonary)
+            #st.write(feature_importance_dic)
 
-        results_df.to_excel(table_name, index=False, engine='openpyxl')
+            algorithm_folder = os.path.join("Results", exp_name, test_set_name)
+            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
 
-        results_df.to_excel(table_name, index=False)
-        results_df.to_excel(table_name, index=False)
-        expand_cell_excel(table_name)
-        wrap_text_excel(table_name)
-        grid_excel(table_name)
+            path_name = f"{algorithm_folder}/{exp_name}_results.joblib"
+            joblib.dump(results_dictonary, path_name)
 
-        # Convert results_df to list of dictionaries
-        results_dic = results_df.to_dict(orient='records')
-        # get the current time
-        current_datetime = datetime.now()
-        current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-        result = {
-            "exp_name": exp_name,
-            "type": model_type,
-            "test set": test_set_name,
-            "results_dic": results_dictonary,
-            "results_table": results_dic,
-            "time_created": current_time
-        }
+            # generate the feature importance charts
+            chart_name = f"{algorithm_folder}/Feature Importance"
+            plot_feature_importance(feature_importance_dic, chart_name)
 
-        results.insert_one(result) # insert one dictonary 
+            # generate the results table
+            results_df = generate_results_table(results_dictonary, selected_outcomes)
+            table_name = f"{algorithm_folder}/{exp_name}_results.xlsx"
 
-        st.success(f"✅ Testing '{exp_name}' completed successfully!")
-        st.subheader("Jump to Visualizing Results") # redirect to the testing section
-        st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+            results_df.to_excel(table_name, index=False, engine='openpyxl')
+
+            results_df.to_excel(table_name, index=False)
+            results_df.to_excel(table_name, index=False)
+            expand_cell_excel(table_name)
+            wrap_text_excel(table_name)
+            grid_excel(table_name)
+
+            # Convert results_df to list of dictionaries
+            results_dic = results_df.to_dict(orient='records')
+            # get the current time
+            current_datetime = datetime.now()
+            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+            # get test dataset name
+            test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+            result = {
+                "exp_name": exp_name,
+                "type": model_type,
+                "test set": test_set_name,
+                "results_dic": results_dictonary,
+                "results_table": results_dic,
+                'dataset used': test_name,
+                "time_created": current_time
+            }
+
+            results.insert_one(result) # insert one dictonary 
+
+            st.success(f"✅ Testing '{exp_name}' completed successfully!")
+            st.subheader("Jump to Visualizing Results") # redirect to the testing section
+            st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+        else:
+            st.error("Test Result of the same name already exists. Please change Test Set name.")

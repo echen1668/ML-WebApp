@@ -87,7 +87,7 @@ st.markdown("This page allows you to view a list of either all experiments done 
 
 st.divider()
 
-experiments, datasetlist = st.tabs(["🧪 Experiments", "📁 Datasets"])
+experiments, datasetlist = st.tabs(["🧪 Experiments", "📒 Datasets"])
 
 ##########################
 # FOR EXPERIMENTS SECTION
@@ -223,6 +223,7 @@ for data_name in filtered_data_names:
     data_type = dataset['type']
     time_saved = dataset['time_saved']
     data_path = dataset['data_path']
+    exps_used = dataset['exps used'] # list of experiments the dataset is used on
 
     
     # if type is not part of filtered list, it is skipped
@@ -240,6 +241,7 @@ for data_name in filtered_data_names:
 
     container.write(f'**Data Type:** {data_type}')
     container.write(f'**Time Saved:** {time_saved}')
+    container.write(f'**List of ML Experiments used on:** {exps_used}')
 
     with container.expander("▶️ Full Data"):
         df = upload_data(data_path)

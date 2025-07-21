@@ -35,7 +35,7 @@ import pprint
 import pymongo
 from pymongo import MongoClient
 
-from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data
+from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data, save_data
 from roctools import full_roc_curve, plot_roc_curve
 
 # connect to database
@@ -66,8 +66,48 @@ def sanitize_filename(filename):
         filename = filename.replace(char, '_')
     return filename
 
+def find_option_dic(configuration, project_name, algorithm):
+    main_dic = configuration[project_name]
+    #st.write(main_dic)
+    for _, (key, values) in enumerate(main_dic.items()):
+        if key == "exp_type":
+            continue
+        
+        if main_dic[key]["algorithm"] == algorithm:
+            return main_dic[key]["options"]
+
+def preprocessdata(df, numeric_cols, cutMissingRows='True', threshold=0.75, inf='replace with null', outliers='None', N=20000):
+    if cutMissingRows == 'True':
+        print("cutMissingRows")
+        # Drop rows with missing values
+        # computing number of columns
+        cols = len(df.axes[1])
+        print("Cuttoff", int(threshold * cols))
+        df = df.dropna(thresh=int(threshold * cols))
+
+    if inf == 'replace with null':
+        print("replace with null")
+        # Replace all inf values with null
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    elif inf == 'replace with zero':
+        print("replace with zero")
+        # Replace all inf values with null
+        df.replace([np.inf, -np.inf], 0, inplace=True)
+
+    if outliers == 'remove rows':
+        print("remove rows")
+        # Remove rows that have a value greater than N for any column. Default N is 20000
+        for column  in df[numeric_cols]:
+            df = df.drop(df.index[df[column] > N])
+    elif outliers == 'log':
+        print("log")
+        # Log values that are greater than N for any column. Default N is 20000
+        df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
+
+    return df
+
 # testing models function
-def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_data, project_name, test_set_name, cutoff_index='youden'):
+def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_columns, test_data_raw, project_name, test_set_name, cutoff_index='youden'):
     results_dictonary = {}
     
     for algo_name in all_algorithms:
@@ -77,6 +117,8 @@ def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_da
         
         for o_name in all_outcomes:
             outcome_dic = model_dic[algo_name][o_name]
+            options = find_option_dic(configuration, project_name, algo_name)
+            #st.write(options)
             algorithm_folder = os.path.join("Results", project_name, test_set_name, f'{algo_name} (results)', o_name)
             os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
                 
@@ -89,39 +131,48 @@ def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_da
                 #st.write(keys_list)
                 model = outcome_dic['Model']
                 features = outcome_dic['Features']
-                #imputer = outcome_dic['Imputer']
-                #scaler = outcome_dic['Scaler']
-                #normalizer = outcome_dic['Normalizer']
                 outcome_name = outcome_dic['Outcome Name']
                 df_res_train = outcome_dic['Train Set Res']
                 df_array_res_train = outcome_dic['Train Set Res Array']
                 print("  Model: ", model)
                 print("  Features: ", features)
-                #print("  Imputer: ", imputer)
-                #print("  Scaler: ", scaler)
-                #print("  Normalizer: ", normalizer)
                 st.write("  Outcome Name: ", outcome_name)
                 print("  Res Train Table: ", df_res_train)
                 print()
                 if model == 'N/A' :
                     continue
                 
-                #Seperate the inputs and outputs for test data
-                #X_train, y_train = train_X, train_y[outcome_name]
+                #print(input_columns)
                 
                 numeric_columns = outcome_dic['Numeric Columns']
                 categorical_columns = outcome_dic['Categorical Columns']
-                
-                input_columns = input_cols_dic[algo_name]
-                print(input_columns)
+
+                # get a copy of the dataset
+                test_data = test_data_raw.copy()
+
+                # Encoder
+                if 'Encoder' in keys_list:
+                    print("Encoder")
+                    encoder = outcome_dic['Encoder']
+                    encoded_cols = outcome_dic['Encoded Columns']
+                    test_data[encoded_cols] = encoder.transform(test_data[categorical_columns])
+
+                # preprocess the testing data
+                test_data = preprocessdata(test_data, numeric_columns, cutMissingRows=options['cutMissingRows'], threshold=options['cut threshold'], inf=options['inf'], outliers=options['outliers'], N=options['outliers_N'])
+
+                # Quantile Transformer
+                if 'Quantile Transformer' in keys_list:
+                    print("Quantile Transformer")
+                    qt = outcome_dic['Quantile Transformer']
+                    test_data[numeric_columns] = qt.transform(test_data[numeric_columns])
                 
                     
                 #Seperate the inputs and outputs for test data
                 try:
                     X_test, y_test = split(test_data, input_columns, outcome_name)
                 except:
-                    st.write("Input Columns do not match with data set.")
-                    continue
+                    st.error("Input Columns do not match with data set.")
+                    return "Error"
                 #X_test, y_test = split(test_data, features, outcome_name)
                 X_col = X_test.columns.to_list()
                     
@@ -157,6 +208,7 @@ def test_models(model_dic, all_algorithms, all_outcomes, input_cols_dic, test_da
                     normalizer = outcome_dic['Normalizer']
                     X_test[numeric_columns] = normalizer.transform(X_test[numeric_columns])
                     y_test.reset_index(drop=True, inplace=True)
+
 
             #print(X_test)
             #print(y_test)
@@ -397,23 +449,35 @@ st.write("Test multiple models based on the Sklearn/Native framework using new/u
 st.header("Step 1: Retrive a ML Experiment")
 
 # Dropdown to select the ML model
-exp_name = st.selectbox("Select the ML model(s)", exp_names)
+exp_name = st.selectbox("Select the ML model(s)", exp_names, index=None, placeholder="Select One...")
+
+#if exp_name == None:
+#    test_set = None
 
 # get the model data
 exp_dic = models.find_one({"exp_name": exp_name})
 
 # get the needed values
 model_path = exp_dic['model_path'] if exp_dic is not None else None
+configuration = exp_dic['configuration'] if exp_dic is not None else None
 model_type = exp_dic['type'] if exp_dic is not None else None
 input_variables = exp_dic['input variables'] if exp_dic is not None else None
+outcomes = exp_dic['outcomes'] if exp_dic is not None else None
 
-# check if results_dict is AutoGulon
-if model_type != 'Native':
+# check if exp_name is Native if there is one
+if exp_name == None:
+    exp_dic = None
+    model_path = None
+    model_type = None
+    input_variables = None
+    test_set = None
+elif exp_name != None and model_type != 'Native':
     st.write("Results is not Native.")
     exp_dic = None
     model_path = None
     model_type = None
     input_variables = None
+    test_set = None
 
 
 # --- Step 2: Upload Data (Dynamic UI) ---
@@ -425,7 +489,7 @@ data_options = st.radio("Choose an option:", ["Upload a testing set", "Retrive t
 if data_options == "Upload a testing set":
     data_name_test = None
     # File uploader for the test
-    uploaded_test_set= st.file_uploader("Upload a Testing Data Set")
+    uploaded_test_set = st.file_uploader("Upload a Testing Data Set")
 
     # upload the test set
     if uploaded_test_set is not None:
@@ -443,8 +507,16 @@ if data_options == "Upload a testing set":
             st.write("### Test Set:")
             st.dataframe(test_set)
 
+            # check if upload test set has the require input and output variables
+            test_cols = test_set.columns.to_list()
+            # Check if  outcomes is a subset of test_cols
+            is_subset = all(x in test_cols for x in outcomes)
+            if is_subset == False:
+                st.error("Uploaded test set does not have the required output variables.")
+
         except Exception as e:
             st.error(f"Error loading file: {e}")
+            is_subset = False
 else:
     uploaded_test_set = None
     # Dropdown to select the testing dataset
@@ -454,6 +526,16 @@ else:
         test_set = upload_data(os.path.join("Data Sets",data_name_test))
         # Replace inf and -inf with NaN
         test_set = test_set.replace([np.inf, -np.inf], np.nan)
+
+        # check if upload test set has the require input and output variables
+        test_cols = test_set.columns.to_list()
+        # Check if outcomes is a subset of test_cols
+        is_subset = all(x in test_cols for x in outcomes)
+        if is_subset == False:
+            st.error("Uploaded test set does not have the required output variables.")
+    else:
+        is_subset = False
+
 
 # --- Step 3: Configure Testing Pipeline ---
 st.header("Step 3: Configure Testing Pipeline")
@@ -514,60 +596,106 @@ threshold_type = st.selectbox("Select a Threshold type", ['youden', 'mcc', 'ji',
 # Let user specify file name
 #file_name = st.text_input("Enter File Name", "results")
 
-if model_path is not None and (uploaded_test_set or data_name_test) is not None and len(selected_outcomes)!=0:
+if model_path is not None and (uploaded_test_set or data_name_test) is not None and len(selected_outcomes)!=0 and is_subset==True:
     # --- Step 4: Execute ---
     st.header("Step 4: Begin Testing")
 
+    #st.write(db.results.find_one({"exp_name": exp_name, "test set": test_set_name}))
+
     # button to test the models
     if st.button('Test the models 🧪'):
-        
-        #try:
-        # call the function to test models
-        results_dictonary = test_models(models_dic, selected_algos, selected_outcomes, input_variables, test_set, exp_name, test_set_name, cutoff_index=threshold_type)
 
-        #st.write(results_dictonary)
+        if db.results.find_one({"exp_name": exp_name, "test set": test_set_name}) == None:
 
-        with st.spinner("Saving all results..."):
-            algorithm_folder = os.path.join("Results", exp_name, test_set_name)
-            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
+            # save the test set if it hasn't already
+            if data_name_test == None and uploaded_test_set.name not in data_names_list_test:
+                st.info(f"Testing Dataset is saving in the database", icon="ℹ️")
+                # create a list of ML exp.'s that the dataset was used on
+                exp_list = [exp_name]
+                #get the current time
+                current_datetime = datetime.now()
+                current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                # save test set in data folder and database
+                os.makedirs("Data Sets", exist_ok=True)
+                save_data(uploaded_test_set.name, test_set, os.path.join("Data Sets", uploaded_test_set.name))
+                dataset_test = {
+                        "data_name": uploaded_test_set.name,
+                        "type": "Test",
+                        "time_saved": current_time,
+                        "data_path": os.path.join("Data Sets", uploaded_test_set.name),
+                        "exps used": exp_list
+                }
+                datasets.insert_one(dataset_test)
+            else:
+                st.info(f"Testing Dataset of the same name is already in the database", icon="ℹ️")
 
-            path_name = os.path.join(algorithm_folder, f"{exp_name}_results.joblib")
-            joblib.dump(results_dictonary, path_name)
+                test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+                # update the dataset in datbase to trackdown the list of ML exps the set was used on
+                dataset = datasets.find_one({"data_name": test_name, "type": "Test"})
+                # Get the current list of experiments or initialize it if not present
+                exp_list = dataset.get("exps used", [])
+                # Add the current project name if it's not already in the list
+                if exp_name not in exp_list:
+                    exp_list.append(exp_name)
 
-            # generate the results table
-            results_df = generate_results_table(results_dictonary)
-            table_name = os.path.join(algorithm_folder, f"{exp_name}_results.xlsx")
+                datasets.update_one(
+                    {"data_name": test_name, "type": "Test"}, # Filter condition
+                    {"$set": { "exps used": exp_list }} # Update operation
+                )
 
-            results_df.to_excel(table_name, index=False, engine='openpyxl')
+            #try:
+            # call the function to test models
+            results_dictonary = test_models(models_dic, configuration, selected_algos, selected_outcomes, input_variables, test_set, exp_name, test_set_name, cutoff_index=threshold_type)
 
-            results_df.to_excel(table_name, index=False)
-            results_df.to_excel(table_name, index=False)
-            expand_cell_excel(table_name)
-            wrap_text_excel(table_name)
-            grid_excel(table_name)
+            if results_dictonary == "Error": # if test_models function returns an error
+                st.error(f"❌ Testing '{exp_name}' Failed. Go back and check testing configuration.")
+            else:
+                with st.spinner("Saving all results..."): # if no error, then save the results
+                    algorithm_folder = os.path.join("Results", exp_name, test_set_name)
+                    os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
 
-            # Convert results_df to list of dictionaries
-            results_dic = results_df.to_dict(orient='records')
-            results_dic
-            # get the current time
-            current_datetime = datetime.now()
-            current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            result = {
-                "exp_name": exp_name,
-                "type": model_type,
-                "test set": test_set_name,
-                "results_dic": results_dictonary,
-                "results_table": results_dic,
-                "time_created": current_time
-            }
+                    path_name = os.path.join(algorithm_folder, f"{exp_name}_results.joblib")
+                    joblib.dump(results_dictonary, path_name)
 
-            results.insert_one(result) # insert one dictonary
-            #except:
-                #st.write("Error has occured in testing. Check if feature set in data contains the required input variables from the model.")
+                    # generate the results table
+                    results_df = generate_results_table(results_dictonary)
+                    table_name = os.path.join(algorithm_folder, f"{exp_name}_results.xlsx")
 
-        st.success(f"✅ Testing '{exp_name}' completed successfully!")
-        st.subheader("Jump to Visualizing Results") # redirect to the testing section
-        st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+                    results_df.to_excel(table_name, index=False, engine='openpyxl')
+
+                    results_df.to_excel(table_name, index=False)
+                    results_df.to_excel(table_name, index=False)
+                    expand_cell_excel(table_name)
+                    wrap_text_excel(table_name)
+                    grid_excel(table_name)
+
+                    # Convert results_df to list of dictionaries
+                    results_dic = results_df.to_dict(orient='records')
+                    results_dic
+                    # get the current time
+                    current_datetime = datetime.now()
+                    current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                    # get test dataset name
+                    test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+                    result = {
+                        "exp_name": exp_name,
+                        "type": model_type,
+                        "test set": test_set_name,
+                        "results_dic": results_dictonary,
+                        "results_table": results_dic,
+                        'dataset used': test_name,
+                        "time_created": current_time
+                    }
+
+                    results.insert_one(result) # insert one dictonary
+                    #except:
+                        #st.write("Error has occured in testing. Check if feature set in data contains the required input variables from the model.")
+
+                st.success(f"✅ Testing '{exp_name}' completed successfully!")
+                st.subheader("Jump to Visualizing Results") # redirect to the testing section
+                st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+        else:
+            st.error("Test Result of the same name already exists. Please change Test Set name.")
 
 #if os.path.isfile(f"{exp_name}_results.xlsx") or os.path.isfile(f"{exp_name}_results.joblib"):
     # swithces to Visualize_Results

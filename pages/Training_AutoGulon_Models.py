@@ -251,13 +251,15 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
 
         train_set = data_sets["Training Set"]
         index_set = data_sets["Index Set"]
-        test_sets = data_sets["Testing Set"]
 
         # save the data
         save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
         save_data(index_set['Name'], index_set['Data'], os.path.join(project_folder, index_set['Name']))
 
         if train_set['Name'] not in data_names_train:
+            st.info(f"Training Dataset {train_set['Name']} is saving in the database", icon="ℹ️")
+            # create a list of ML exp.'s that the dataset was used on
+            exp_list = [project_name]
             # get the current time
             current_datetime = datetime.now()
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
@@ -268,11 +270,25 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
                     "data_name": train_set['Name'],
                     "type": "Train",
                     "time_saved": current_time,
-                    "data_path": os.path.join("Data Sets", train_set['Name'])
+                    "data_path": os.path.join("Data Sets", train_set['Name']),
+                    "exps used": exp_list
             }
             datasets.insert_one(dataset_train)
         else:
             st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database", icon="ℹ️")
+
+            # update the dataset in datbase to trackdown the list of ML exps the set was used on
+            dataset = datasets.find_one({"data_name": train_set['Name'], "type": "Train"})
+            # Get the current list of experiments or initialize it if not present
+            exp_list = dataset.get("exps used", [])
+            # Add the current project name if it's not already in the list
+            if project_name not in exp_list:
+                exp_list.append(project_name)
+
+            datasets.update_one(
+                {"data_name": train_set['Name'], "type": "Train"}, # Filter condition
+                {"$set": { "exps used": exp_list }} # Update operation
+            )
 
 
         # get proper data name
@@ -290,32 +306,6 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
         # refine the binary outcomes
         df_train = refine_binary_outcomes(train_set["Data"], label_cols)
 
-        # refine all the test sets and save them 
-        for _, (testing_set_name, testing_set) in enumerate(test_sets.items()):
-            # save the test sets in folder system
-            save_data(testing_set_name, testing_set, os.path.join(project_folder, testing_set_name))
-
-            if testing_set_name not in data_names_list_test:
-                # get the current time
-                current_datetime = datetime.now()
-                current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-                    
-                # save test set in data folder and database
-                os.makedirs("Data Sets", exist_ok=True)
-                save_data(testing_set_name, testing_set, os.path.join("Data Sets", testing_set_name))
-                dataset_test = {
-                        "data_name": testing_set_name,
-                        "type": "Test",
-                        "time_saved": current_time,
-                        "data_path": os.path.join("Data Sets", testing_set_name)
-                }
-                datasets.insert_one(dataset_test)
-            else:
-                st.info(f"Testing Dataset {testing_set_name} of the same name is already in the database", icon="ℹ️")
-
-            # prep testing sets
-            df_test = refine_binary_outcomes(testing_set, label_cols)
-
         #st.write(label_cols)
 
         for outcome in label_cols:
@@ -324,7 +314,7 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
                     st.error(f'Unable to generate model because {outcome} is not in dataset.')
                     continue
 
-                # create the train/test set for the specifc input variables and specific outcome.
+                # create the train set for the specifc input variables and specific outcome.
                 input_train = df_train[input_cols]
                 train_data = pd.concat([input_train, df_train[[outcome]]], axis=1)
                 #st.write(train_data)
@@ -404,7 +394,9 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
                 "type": "AutoGulon",
                 "model_path": pathway_name,
                 "input variables": input_cols,
+                'outcomes': label_cols,
                 "configuration": configuration_dic,
+                "train_data_path": os.path.join(project_folder, train_set["Name"]),
                 "time_created": current_time
         }
 
@@ -498,20 +490,20 @@ st.markdown("Configure and launch a new model training workflow using the advanc
 # (The rest of the UI code is the same as before)
 # ...
 if 'training_method' not in st.session_state:
-    st.session_state.training_method = "Train/Test Split"
+    #st.session_state.training_method = "Train/Test Split"
     st.session_state.exp_name = ""
     st.session_state.algorithms = []
 
 # --- Step 1: Experiment Setup ---
 st.header("Step 1: Define Experiment and Data Strategy")
 project_name = st.text_input("Experiment Name", help="Enter a unique name for this experiment.")
-st.radio(
-    "Select Training Method",
-    ["Train/Test Split", "Dedicated Test Set"],
-    key="training_method",
-    horizontal=True,
-    help="Choose how to evaluate model."
-)
+#st.radio(
+#    "Select Training Method",
+#    ["Train/Test Split", "Train Whole Set"],
+#    key="training_method",
+#    horizontal=True,
+#    help="Choose how to evaluate model."
+#)
 
 # check if project name already exists in database
 if project_name in exp_names:
@@ -533,33 +525,24 @@ data_options = st.radio("Choose an option:", ["Upload a dataset", "Retrive datas
 
 if data_options == "Upload a dataset":
     data_name_train = None
-    data_names_test = []
     col1, col2 = st.columns(2)
     with col1:
         # Use a consistent key for the main dataset uploader
-        dataset_uploader_key = "main_dataset_uploader"
+        #dataset_uploader_key = "main_dataset_uploader"
         
-        if st.session_state.training_method == "Train/Test Split":
-            main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
-            test_uploaded_file = None
-        else: # Dedicated Test Set
-            main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
-            test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
+        #if st.session_state.training_method == "Train/Test Split":
+        #    main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
+        #else: # Train Whole Set
+            #main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
+        main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
 
     with col2:
         completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
 else:
     main_uploaded_file = None
-    test_uploaded_file = None
 
     # Dropdown to select the training dataset
     data_name_train = st.selectbox("Select a Training Dataset from the database:", data_names_train, index=None, placeholder="Select One...")
-
-    if st.session_state.training_method == "Dedicated Test Set":
-        # Dropdown to select the tesitng dataset
-        data_names_test = st.multiselect("Select a Testing Dataset from the database:", data_names_list_test)
-    else:
-        data_names_test = []
 
     # Open and wrap the file like an uploaded file (binary mode)
     if data_name_train is not None:
@@ -588,30 +571,6 @@ elif data_name_train:
     data_sets["Training Set"]["Name"] = data_name_train
     data_sets["Training Set"]["Data"] = df_train
     
-# testing sets
-test_sets = []
-if data_options == "Upload a dataset" and test_uploaded_file:
-
-    data_sets["Testing Set"] = {}
-    for file in test_uploaded_file:
-        #st.subheader(f"Dataset: {file.name}")
-        test_sets.append(file.name)
-        df_test = load_data(file.name, file)
-        #st.write(df_test.head())  # Display the first few rows
-        data_sets["Testing Set"][file.name] = df_test
-
-elif len(data_names_test) > 0:
-    data_sets["Testing Set"] = {}
-
-    for data_name_test in data_names_test:
-        test_sets.append(data_name_test)
-        #st.write(f"Dataset: {file.name}")
-        df_test = upload_data(os.path.join("Data Sets",data_name_test))
-        #st.write(df_test.head())  # Display the first few rows
-        data_sets["Testing Set"][data_name_test] = df_test
-
-else:
-    data_sets["Testing Set"] = {}
 
 if (main_uploaded_file or data_name_train) and not completed_index_file:
     st.info("A dataset has been uploaded. Now generate a matching index file to edit.")
@@ -785,7 +744,7 @@ elif configure_options == "Upload a file":
 
     if uploaded_config_file:
         configuration_dic = json.load(uploaded_config_file)
-        #custom_hyperparameters = configuration_dic['custom_hyperparameters']
+        custom_hyperparameters = configuration_dic['custom_hyperparameters']
         if custom_hyperparameters != None:
             configuration_dic['custom_hyperparameters'] = convert_from_json_compatible(configuration_dic['custom_hyperparameters'])
         st.write(configuration_dic)

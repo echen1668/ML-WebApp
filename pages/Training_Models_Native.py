@@ -145,13 +145,16 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
         train_set = data_sets["Training Set"]
         index_set = data_sets["Index Set"]
-        test_sets = data_sets["Testing Set"]
+        #test_sets = data_sets["Testing Set"]
 
         # save the data sets
         save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
         save_data(index_set['Name'], index_set['Data'], os.path.join(project_folder, index_set['Name']))
 
         if train_set['Name'] not in data_names_train:
+            st.info(f"Training Dataset {train_set['Name']} is saving in the database", icon="ℹ️")
+            # create a list of ML exp.'s that the dataset was used on
+            exp_list = [project_name]
             # get the current time
             current_datetime = datetime.now()
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
@@ -162,11 +165,25 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                     "data_name": train_set['Name'],
                     "type": "Train",
                     "time_saved": current_time,
-                    "data_path": os.path.join("Data Sets", train_set['Name'])
+                    "data_path": os.path.join("Data Sets", train_set['Name']),
+                    "exps used": exp_list
             }
             datasets.insert_one(dataset_train)
         else:
             st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database", icon="ℹ️")
+
+            # update the dataset in datbase to trackdown the list of ML exps the set was used on
+            dataset = datasets.find_one({"data_name": train_set['Name'], "type": "Train"})
+            # Get the current list of experiments or initialize it if not present
+            exp_list = dataset.get("exps used", [])
+            # Add the current project name if it's not already in the list
+            if project_name not in exp_list:
+                exp_list.append(project_name)
+
+            datasets.update_one(
+                {"data_name": train_set['Name'], "type": "Train"}, # Filter condition
+                {"$set": { "exps used": exp_list }} # Update operation
+            )
 
         # get proper data name
         if train_set['Name'].endswith('.xlsx'):
@@ -200,40 +217,54 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
             algorithms.append(algorithm)
             results_dictonary[algorithm] = {}
 
-            # refine all the test sets and save them 
-            for _, (testing_set_name, testing_set) in enumerate(data_sets['Testing Set'].items()):
+            # refine all the test sets and save them
+            #for _, (testing_set_name, testing_set) in enumerate(data_sets['Testing Set'].items()):
                 
-                if testing_set_name not in data_names_list_test:
+                #if testing_set_name not in data_names_list_test:
                     # get the current time
-                    current_datetime = datetime.now()
-                    current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-                    # save test set in data folder and database
-                    os.makedirs("Data Sets", exist_ok=True)
-                    save_data(testing_set_name, testing_set, os.path.join("Data Sets", testing_set_name))
-                    dataset_test = {
-                            "data_name": testing_set_name,
-                            "type": "Test",
-                            "time_saved": current_time,
-                            "data_path": os.path.join("Data Sets", testing_set_name)
-                    }
-                    datasets.insert_one(dataset_test)
-                else:
-                    st.info(f"Testing Dataset {testing_set_name} of the same name is already in the database", icon="ℹ️")
+                    #current_datetime = datetime.now()
+                    #current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                    ## save test set in data folder and database
+                    #os.makedirs("Data Sets", exist_ok=True)
+                    #save_data(testing_set_name, testing_set, os.path.join("Data Sets", testing_set_name))
+                    #dataset_test = {
+                    #        "data_name": testing_set_name,
+                    #        "type": "Test",
+                    #        "time_saved": current_time,
+                    #        "data_path": os.path.join("Data Sets", testing_set_name)
+                    #}
+                    #datasets.insert_one(dataset_test)
+                #else:
+                    #st.info(f"Testing Dataset {testing_set_name} of the same name is already in the database", icon="ℹ️")
 
                 # prep testing sets
-                _, df_test, _, _ = data_prep_train_set(df_train, testing_set, input_cols, label_cols, numeric_cols, categorical_cols, options)
+                #_, df_test, _, _ = data_prep_train_set(df_train, testing_set, input_cols, label_cols, numeric_cols, categorical_cols, options)
 
                 # save test set refined
-                file_name = "refined_" + testing_set_name
-                df_test.to_csv(os.path.join(project_folder, experiment_name, file_name))
+                #file_name = "refined_" + testing_set_name
+                #df_test.to_csv(os.path.join(project_folder, experiment_name, file_name))
 
             # refine the training set before model training
-            df_train_refined, input_cols, label_cols = data_prep(df_train, input_cols, label_cols, numeric_cols, categorical_cols, options)
+            df_train_refined, input_cols, label_cols, encoder, encoded_cols, qt = data_prep(df_train, input_cols, label_cols, numeric_cols, categorical_cols, options)
+
+            # save any preprocessing steps
+            algorithm_folder = os.path.join(project_folder, experiment_name)
+            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm preprocessing steps
+
+            if encoder != None:
+                encoder_name = os.path.join(algorithm_folder, algorithm + "_encoder.joblib")
+                joblib.dump(encoder, encoder_name)
+                encoded_cols_name = os.path.join(algorithm_folder, algorithm + "_encoded_cols.joblib")
+                joblib.dump(encoded_cols, encoded_cols_name)
+
+            if qt != None:
+                qt_name = os.path.join(algorithm_folder, algorithm + "_qt.joblib")
+                joblib.dump(qt, qt_name)
 
         # --- 3. Loop Through Algorithms and Execute Workflows ---
         with st.spinner(f"Training has offically started for {experiment_name}! ... This may take a while."):
 
-            if st.session_state.training_method == "Dedicated Test Set":
+            if st.session_state.training_method == "Train Whole Set":
                 multi_outcome_hyperparameter_binary(df_train_refined, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals, experiment_name, project_folder)
                 
             elif st.session_state.training_method == "Train/Test Split":
@@ -253,8 +284,8 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
     st.write("---")
     with st.spinner("Finalizing experiment: saving metadata and final reports..."):
 
-        if st.session_state.training_method in ["Train/Test Split", "Dedicated Test Set"]:
-            models_dic, input_cols_dic = generate_joblib_model(project_folder)
+        if st.session_state.training_method in ["Train/Test Split", "Train Whole Set"]:
+            models_dic, _ = generate_joblib_model(project_folder)
             model_absolute_path = os.path.join(project_folder)
 
             pathway_name = os.path.join(model_absolute_path, project_name + "_models.joblib")
@@ -269,8 +300,10 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 "type": "Native",
                 "model_path": pathway_name,
                 "algorithms": algorithms,
-                "input variables": input_cols_dic,
+                "input variables": input_cols,
+                'outcomes': label_cols,
                 "configuration": configuration_dic,
+                "train_data_path": os.path.join(project_folder, train_set['Name']),
                 "time_created": current_time
             }
 
@@ -279,19 +312,19 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         if st.session_state.training_method in ["Train/Test Split", "Cross-Validation"]:
 
             # save the results into database
-            algorithm_folder = os.path.join("Results", project_name, data_name) if st.session_state.training_method=="Train/Test Split" else os.path.join("Results", project_name)
-            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results if it doesn't exists yet
+            results_folder = os.path.join("Results", project_name, data_name) if st.session_state.training_method=="Train/Test Split" else os.path.join("Results", project_name)
+            os.makedirs(results_folder, exist_ok=True)  # Create folder for algorithm results if it doesn't exists yet
 
             training_type = "Native" if st.session_state.training_method=="Train/Test Split" else "Native-CV"
 
             final_results_dic = get_avg_results_dic(results_dictonary) if st.session_state.training_method=="Cross-Validation" else results_dictonary
 
-            path_name = os.path.join(algorithm_folder, f"{project_name}_results.joblib")
+            path_name = os.path.join(results_folder, f"{project_name}_results.joblib")
             joblib.dump(final_results_dic, path_name)
 
             # generate the results table
             results_df = generate_results_table(final_results_dic)
-            table_name = os.path.join(algorithm_folder, f"{project_name}_results.xlsx")
+            table_name = os.path.join(results_folder, f"{project_name}_results.xlsx")
 
             results_df.to_excel(table_name, index=False, engine='openpyxl')
 
@@ -315,6 +348,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 "test set": data_name,
                 "results_dic": final_results_dic,
                 "results_table": results_dic,
+                'dataset used': train_set['Name'],
                 "time_created": current_time
             }
 
@@ -432,7 +466,7 @@ st.header("Step 1: Define Experiment and Data Strategy")
 project_name = st.text_input("Experiment Name", help="Enter a unique name for this experiment.")
 st.radio(
     "Select Training Method",
-    ["Train/Test Split", "Dedicated Test Set", "Cross-Validation"],
+    ["Train/Test Split", "Train Whole Set", "Cross-Validation"],
     key="training_method",
     horizontal=True,
     help="Choose how to evaluate model."
@@ -458,7 +492,7 @@ data_options = st.radio("Choose an option:", ["Upload a dataset", "Retrive datas
 
 if data_options == "Upload a dataset":
     data_name_train = None
-    data_names_test = []
+    #data_names_test = []
     col1, col2 = st.columns(2)
     with col1:
         # Use a consistent key for the main dataset uploader
@@ -466,25 +500,25 @@ if data_options == "Upload a dataset":
         
         if st.session_state.training_method in ["Train/Test Split", "Cross-Validation"]:
             main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
-            test_uploaded_file = None
-        else: # Dedicated Test Set
+            #test_uploaded_file = None
+        else: # Train Whole Set
             main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
-            test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
+            #test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
 
     with col2:
         completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
 else:
     main_uploaded_file = None
-    test_uploaded_file = None
+    #test_uploaded_file = None
 
     # Dropdown to select the training dataset
     data_name_train = st.selectbox("Select a Training Dataset from the database:", data_names_train, index=None, placeholder="Select One...")
 
-    if st.session_state.training_method == "Dedicated Test Set":
+    #if st.session_state.training_method == "Train Whole Set":
         # Dropdown to select the tesitng dataset
-        data_names_test = st.multiselect("Select a Testing Dataset from the database:", data_names_list_test)
-    else:
-        data_names_test = []
+    #    data_names_test = st.multiselect("Select a Testing Dataset from the database:", data_names_list_test)
+    #else:
+    #    data_names_test = []
 
     # Open and wrap the file like an uploaded file (binary mode)
     if data_name_train is not None:
@@ -518,31 +552,31 @@ elif data_name_train:
     data_sets["Training Set"]["Data"] = df_train
 
 
-test_sets = []
-if data_options == "Upload a dataset" and test_uploaded_file:
+#test_sets = []
+#if data_options == "Upload a dataset" and test_uploaded_file:
 
-    data_sets["Testing Set"] = {}
+#   data_sets["Testing Set"] = {}
 
-    for file in test_uploaded_file:
+#    for file in test_uploaded_file:
         #st.subheader(f"Dataset: {file.name}")
-        test_sets.append(file.name)
+#        test_sets.append(file.name)
 
-        df_test = load_data(file.name, file)
+#        df_test = load_data(file.name, file)
         #st.write(df_test.head())  # Display the first few rows
 
-        data_sets["Testing Set"][file.name] = df_test
-elif len(data_names_test) > 0:
-    data_sets["Testing Set"] = {}
+#        data_sets["Testing Set"][file.name] = df_test
+#elif len(data_names_test) > 0:
+#    data_sets["Testing Set"] = {}
 
-    for data_name_test in data_names_test:
-        test_sets.append(data_name_test)
+#    for data_name_test in data_names_test:
+#        test_sets.append(data_name_test)
         #st.write(f"Dataset: {file.name}")
-        df_test = upload_data(os.path.join("Data Sets",data_name_test))
+#        df_test = upload_data(os.path.join("Data Sets",data_name_test))
         #st.write(df_test.head())  # Display the first few rows
-        data_sets["Testing Set"][data_name_test] = df_test
+#        data_sets["Testing Set"][data_name_test] = df_test
 
-else:
-    data_sets["Testing Set"] = {}
+#else:
+#    data_sets["Testing Set"] = {}
 
 #st.write(test_sets)
 
@@ -651,7 +685,7 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         n_repeats = st.number_input("Number of CV Repeats", min_value=1, value=1)
         min_postives = st.number_input("Minimum Positive Cases for an Outcome", min_value=1, value=10)
 
-        if st.session_state.training_method != "Dedicated Test Set":
+        if st.session_state.training_method != "Train Whole Set":
             test_size = st.number_input("Enter the size of the test set (% of the data set set aside for testing):", min_value=0.0, max_value=1.0, value=0.2)
             threshold_type = st.selectbox("Optimal Cutoff Threshold Method", ['youden', 'mcc', 'ji', 'f1'])
         else:

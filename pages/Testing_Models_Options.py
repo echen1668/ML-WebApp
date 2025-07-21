@@ -27,6 +27,13 @@ import streamlit as st
 from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel
 from roctools import full_roc_curve, plot_roc_curve
 
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Upload and Test ML Model",
+    page_icon="🧪",
+    layout="wide"
+)
+
 # back button to return to main page
 if st.button('Back'):
     st.switch_page("ML_Interface.py")  # Redirect to the main back

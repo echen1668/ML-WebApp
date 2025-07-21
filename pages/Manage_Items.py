@@ -160,12 +160,13 @@ else:
 
 
 # delete a dataset
-delete.subheader("🗑️-📁 Delete a Dataset?")
+delete.subheader("🗑️-📒 Delete a Dataset?")
 delete.write("Find a dataset from the database and remove it from both the database and file system.")
 # Dropdown to select the experiment to display dataset from
 data_name = delete.selectbox("Select a saved Dataset", data_names, index=None, placeholder="Select One...")
 
 if len(list(data_names)) != 0 and data_name != None and delete.button("Delete Dataset", disabled=st.session_state.running_datasets, key='run_datasets_button'):
+    dataset_item = datasets.find_one({"data_name": data_name})
 
     # remove all instances of the dataset from the file system
     model_path = dataset_item['data_path']
@@ -257,7 +258,7 @@ else:
     st.session_state.running_dataset = False
 
 # rename an experiment
-rename.subheader("✏️-📁 Rename Dataset?")
+rename.subheader("✏️-📒 Rename Dataset?")
 rename.write("Find an saved dataset from the database and rename it.")
 # Dropdown to select the dataset to display from
 data_name = rename.selectbox("Select a saved dataset to rename", data_names, index=None, placeholder="Select One...")
