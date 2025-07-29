@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import metrics
 from sklearn.metrics import roc_curve
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_recall_curve
 from sklearn.metrics import auc
 import csv
 #import magic 
@@ -48,7 +48,7 @@ if "outcome_options" not in st.session_state:
 
 def plot_roc(data, options):
     # Plot ROC curves
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     # go throught each outcome to plot its ROC curve
     for option in options:
@@ -92,12 +92,47 @@ def plot_roc(data, options):
         ax.fill_between(1-specificity, res_array['tpr_low'], res_array['tpr_high'], alpha=.2)
 
     ax.plot([0, 1], [0, 1], 'k--')  # Diagonal line for reference
-    ax.set_xlabel("False Positive Rate", fontsize=14)
-    ax.set_ylabel("True Positive Rate", fontsize=14)
-    ax.set_title("ROC Curves", fontsize=16)
-    ax.legend(loc="lower right", fontsize=11)
+    ax.set_xlabel("False Positive Rate", fontsize=10)
+    ax.set_ylabel("True Positive Rate", fontsize=10)
+    ax.set_title("ROC Curves", fontsize=12)
+    ax.legend(loc="lower right", fontsize=8)
 
-    st.pyplot(fig)  # Use Streamlit's function to display the plot
+    st.pyplot(fig, use_container_width=False)    # Use Streamlit's function to display the plot
+
+
+def plot_pr(data, options):
+    # Plot PR curves
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # go throught each outcome to plot its PR curve
+    for option in options:
+        #st.write(option)
+        other, outcome = option.rsplit('-', 1)
+        exp_name, test_set = other.rsplit('-', 1)
+
+        if "evaluation" in list(data[exp_name][test_set][outcome].keys()):
+            values = data[exp_name][test_set][outcome]["evaluation"] # get the ground truths and probs for the specified outcome
+        else: 
+            values = data[exp_name][test_set][outcome]
+
+        y_true = [int(x) for x in values["Ground Truths"]]
+        y_prob = [x[1] for x in values["Probability Scores"]]
+
+        # get the precision and recall values need to plot the curve
+        precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
+        pr_auc_score = auc(recall, precision)
+
+        # plot the PR Curve
+        ax.plot(recall, precision, label=f'{option} (AUC = {pr_auc_score:.4f})', linewidth=2)
+
+    ax.plot([0, 1], [1, 0], 'k--')  # Diagonal line for reference
+    ax.set_xlabel("Recall", fontsize=10)
+    ax.set_ylabel("Precision", fontsize=10)
+    ax.set_title("Precision-Recall Curve", fontsize=12)
+    ax.legend(loc="lower right", fontsize=8)
+
+    st.pyplot(fig, use_container_width=False)  # Use Streamlit's function to display the plot
+
 
 def plot_shap(data, options):
 
@@ -132,7 +167,7 @@ def plot_shap(data, options):
     # Adjust x-axis labels for readability
     plt.xticks(rotation=45, ha='right')  # Rotate and align right
         
-    st.pyplot(fig)  # Use Streamlit's function to display the plot
+    st.pyplot(fig, use_container_width=False)    # Use Streamlit's function to display the plot
 
     plt.close()
 
@@ -200,6 +235,17 @@ else:
 # Get the outcome_dic for each outcome
 outcome_dic = results_dict['results_dic'] if results_dict is not None else None
 
+# get some info
+model_type = results_dict['type'] if results_dict is not None else None
+dataset_used = results_dict['dataset used'] if results_dict is not None else None
+time_created = results_dict['time_created'] if results_dict is not None else None
+
+# get the name of the data set used
+try:
+    test_set_name = results_dict['dataset used'] if results_dict is not None else None
+except:
+    test_set_name = 'N/A'
+
 # check if results_dict is AutoGulon
 if outcome_dic is not None and results_dict['type'] != 'AutoGulon':
     st.write("Results is not AutoGulon.")
@@ -211,6 +257,17 @@ if "df_total" not in st.session_state:
     st.session_state.df_total = pd.DataFrame()
 
 if results_dict is not None:
+    # give some information about the ML Test Result
+    with st.expander("▶️ ML Test Result Info"):
+        # write all test content in expander
+        st.markdown("##### **Name:**") 
+        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+        st.markdown('##### **Test:**')
+        st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
+        st.write(f'**Model Type:** {model_type}')
+        st.write(f'**Test Data Used:** {dataset_used}')
+        st.write(f'**Time Created:** {time_created}')
+
     try:
         # # get the results table
         df = pd.DataFrame(results_dict['results_table'])
@@ -219,6 +276,7 @@ if results_dict is not None:
         df.insert(0, "Test Set", test_set)
         df.insert(0, "Exp_Name", exp_name)
         df["Exp_Name-Test Set"] = f'{exp_name}-{test_set}'
+        df["Data Set used"] = test_set_name
 
         # add error margins for AUROC Scores
         df["Upper_CI_Gap"] = df["AUROC CI Upper"] - df["AUROC Score"]
@@ -315,11 +373,30 @@ if len(st.session_state.df_total) != 0:
     # Show the plot
     st.plotly_chart(fig)
 
+st.write("")
+
+# Initialize session state variable
+if "show_values_outcome_dic" not in st.session_state:
+        st.session_state.show_values_outcome_dic = False
+
+# Button to display values of outcome_dic
+if st.button('Display the Values'):
+    st.session_state.show_values_outcome_dic = True  # Set state to show values
+
+# Button to hide values (appears only when values are shown)
+if st.session_state.show_values_outcome_dic:
+    st.write(st.session_state.outcome_dic_total)
+    if st.button('Hide the Values'):
+        st.session_state.show_values_outcome_dic = False  # Reset state to hide values
+        st.rerun()  # Refresh the page to update UI
+
+
 st.write("")  # Add for more space
 st.write("")
 
+
 # Visuize and compare ROC Curves
-st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>Visualize the ROC and P-R Curve</h2>", unsafe_allow_html=True)
 
 # add outcome_dic to st.session_state.outcome_dic_total
 if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
@@ -352,26 +429,14 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
             
 #st.write(list_of_outcomes)
 
-# Initialize session state variable
-if "show_values_outcome_dic" not in st.session_state:
-        st.session_state.show_values_outcome_dic = False
-
-# Button to display values of outcome_dic
-if st.button('Display the Values'):
-    st.session_state.show_values_outcome_dic = True  # Set state to show values
-
-# Button to hide values (appears only when values are shown)
-if st.session_state.show_values_outcome_dic:
-    st.write(st.session_state.outcome_dic_total)
-    if st.button('Hide the Values'):
-        st.session_state.show_values_outcome_dic = False  # Reset state to hide values
-        st.rerun()  # Refresh the page to update UI
-
 
 st.title("ROC Curve Analysis")
-
 if st.session_state.outcome_options and st.session_state.outcome_dic_total:
     plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)
+
+st.title("P-R Curve Analysis")
+if st.session_state.outcome_options and st.session_state.outcome_dic_total:
+    plot_pr(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
 st.title("Feature Importance Analysis")
         

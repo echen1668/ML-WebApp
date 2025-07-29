@@ -27,6 +27,7 @@ import streamlit as st
 from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel
 from roctools import full_roc_curve, plot_roc_curve
 
+
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Visualize ML Results",
@@ -44,16 +45,19 @@ st.title("📊 Visualize ML Results")
 st.write("This page helps you visualize the results of your ML model(s).")
 
 # two options to decide what to do
-left_column, middle_column, right_column = st.columns(3)
+#left_column, middle_column, right_column = st.columns(3)
 
 # Visualize ML Results button on AutoGluon models
-if left_column.button('🤖 Visualize the results of ML experiments done with AutoGluon'):
-    st.switch_page("pages/Visualize_Multi_Results (AutoGluon).py")  # Redirect to Visualize_Multi_Results (AutoGluon).py
+st.subheader("🤖 Visualize the results of ML experiments done with AutoGluon")
+st.page_link("pages/Visualize_Multi_Results (AutoGluon).py", label=":blue[Visualize AutoGulon Models]", icon="📊") # Redirect to Visualize_Multi_Results (AutoGluon).py
+st.write("")
 
 # Visualize ML Results button on Native/Sklearn models
-if middle_column.button('🔥 Visualize the results of ML experiments done with Native (sklearn) models'):
-    st.switch_page("pages/Visualize_Multi_Results (Native).py")  # Redirect to Visualize_Multi_Results (Native).py
+st.subheader("🔥 Visualize the results of ML experiments done with Native (sklearn) models")
+st.page_link("pages/Visualize_Multi_Results (Native).py", label=":blue[Visualize Sklearn Models]", icon="📊") # Redirect to Visualize_Multi_Results (Native).py
+st.write("")
 
-# Visualize ML Results button for CV
-if right_column.button('❌ Visualize the results of ML experiments done with Cross Validation using Native (sklearn) models'):
-    st.switch_page("pages/Visualize_Multi_Results (CV).py")  # Redirect to Visualize_Multi_Results.py    
+# Visualize ML Results button for CV 
+st.subheader("❌ Visualize the results of ML experiments done with Cross Validation using Native (sklearn) models")
+st.page_link("pages/Visualize_Multi_Results (CV).py", label=":blue[Visualize CV Sklearn Results]", icon="📊") # direct to Visualize_Multi_Results.py 
+st.write("")

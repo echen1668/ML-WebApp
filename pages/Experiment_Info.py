@@ -133,6 +133,9 @@ for exp_name in filtered_exp_names:
     except:
         time_created = 'N/A'
 
+    # get the training data path name
+    #train_data_path = model['train_data_path'] if model is not None else None
+
     # get all results for that ML experiment
     all_results = list(results.find({"exp_name": exp_name}))
     num_results = len(all_results)
@@ -153,6 +156,7 @@ for exp_name in filtered_exp_names:
     container.write(f'**Model Type:** {model_type}')
     container.write(f'**Time Created:** {time_created}')
     container.write(f'**Number of Algorithms:** {num_algo}')
+    #container.write(f'**Train Data Path:** {train_data_path}')
 
     # list of algorthims
     if model_type == "Native":

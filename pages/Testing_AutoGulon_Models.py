@@ -376,7 +376,7 @@ st.write("Test multiple models based on the AutoGulon framework using new/unseen
 st.header("Step 1: Retrive a ML Experiment")
 
 # Dropdown to select the ML model
-exp_name = st.selectbox("Select the ML model(s)", exp_names)
+exp_name = st.selectbox("Select the ML model(s)", exp_names, index=None, placeholder="Select One...")
 
 # get the model data
 exp_dic = models.find_one({"exp_name": exp_name})
@@ -386,14 +386,38 @@ model_path = exp_dic['model_path'] if exp_dic is not None else None
 model_type = exp_dic['type'] if exp_dic is not None else None
 input_variables = exp_dic['input variables'] if exp_dic is not None else None
 outcomes = exp_dic['outcomes'] if exp_dic is not None else None
+train_data_path = exp_dic['train_data_path'] if exp_dic is not None else None
 
-# check if results_dict is AutoGulon
-if model_type != 'AutoGulon':
+# get the time created
+try:
+    time_created = exp_dic['time_created']
+except:
+    time_created = 'N/A'
+
+# check if exp_name is AutoGulon if there is one
+if exp_name == None:
+    exp_dic = None
+    model_path = None
+    model_type = None
+    input_variables = None
+    test_set = None
+elif exp_name != None and model_type != 'AutoGulon':
     st.error("Results is not AutoGulon")
     exp_dic = None
     model_path = None
     model_type = None
     input_variables = None
+
+# give some information about the ML Experiment
+if exp_dic != None:
+    with st.expander("▶️ ML Experiment Info"):
+        # write all model content in expander
+        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+
+        st.write(f'**Model Type:** {model_type}')
+        st.write(f'**Train Data Path:** {train_data_path}')
+        st.write(f'**Time Created:** {time_created}')
+
 
 # --- Step 2: Upload Data (Dynamic UI) ---
 st.header("Step 2: Upload Data")
@@ -508,7 +532,6 @@ else:
             is_subset = True
     else:
         train_set = None
-        is_subset = False
 
 # --- Step 3: Configure Testing Pipeline ---
 st.header("Step 3: Configure Testing Pipeline")

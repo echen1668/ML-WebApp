@@ -6,7 +6,7 @@ import sklearn as scikit_learn
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, precision_recall_curve
 from sklearn.metrics import auc
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import csv
@@ -48,7 +48,7 @@ if "outcome_options" not in st.session_state:
 
 def plot_roc(data, options):
     # Plot ROC curves
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     # go throught each outcome to plot its ROC curve
     for option in options:
@@ -96,12 +96,49 @@ def plot_roc(data, options):
 
 
     ax.plot([0, 1], [0, 1], 'k--')  # Diagonal line for reference
-    ax.set_xlabel("False Positive Rate", fontsize=14)
-    ax.set_ylabel("True Positive Rate", fontsize=14)
-    ax.set_title("ROC Curves", fontsize=16)
-    ax.legend(loc="lower right", fontsize=11)
+    ax.set_xlabel("False Positive Rate", fontsize=10)
+    ax.set_ylabel("True Positive Rate", fontsize=10)
+    ax.set_title("ROC Curves", fontsize=12)
+    ax.legend(loc="lower right", fontsize=8)
 
-    st.pyplot(fig)  # Use Streamlit's function to display the plot
+    st.pyplot(fig, use_container_width=False)  # Use Streamlit's function to display the plot
+
+
+def plot_pr(data, options):
+    # Plot ROC curves
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # go throught each outcome to plot its PR curve
+    for option in options:
+        rest, outcome = option.rsplit('-', 1)
+        name, algo = rest.rsplit('-', 1)
+        exp_name, test_set = name.rsplit('-', 1)
+
+        if "evaluation" in list(data[exp_name][test_set][algo][outcome].keys()):
+            values = data[exp_name][test_set][algo][outcome]["evaluation"] # get the ground truths and probs for the specified outcome
+        else: 
+            values = data[exp_name][test_set][algo][outcome]
+
+        y_true = [int(x) for x in values["Ground Truths"]]
+        y_prob = [x[1] for x in values["Probability Scores"]]
+
+        # get the precision and recall values need to plot the curve
+        precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
+        pr_auc_score = auc(recall, precision)
+
+        # plot the PR Curve
+        ax.plot(recall, precision, label=f'{option} (AUC = {pr_auc_score:.4f})', linewidth=2)
+
+    ax.plot([0, 1], [1, 0], 'k--')  # Diagonal line for reference
+    ax.set_xlabel("Recall", fontsize=10)
+    ax.set_ylabel("Precision", fontsize=10)
+    ax.set_title("Precision-Recall Curve", fontsize=12)
+    ax.legend(loc="lower right", fontsize=8)
+
+    st.pyplot(fig, use_container_width=False)  # Use Streamlit's function to display the plot
+
+
+
 
 def plot_shap(data, options):
 
@@ -119,7 +156,7 @@ def plot_shap(data, options):
     image_data = data[exp_name][test_set][algo][outcome]['shap values'] # get the shap image
 
     # Plot SHAP chart
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     ax.axis('off')  # Hides the axes
 
@@ -127,7 +164,7 @@ def plot_shap(data, options):
     image = Image.open(io.BytesIO(image_data))
     plt.imshow(image)
     plt.show()
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=False)
     plt.close()
 
 def plot_confusion_matrix(data, option_cm):
@@ -154,7 +191,7 @@ def plot_confusion_matrix(data, option_cm):
     #st.write(cm)
 
     # Plot Confusion matrix chart
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     # Show the matrix with color
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
@@ -182,7 +219,7 @@ def plot_confusion_matrix(data, option_cm):
                     color="white" if cm[i, j] > cm.max() / 2 else "black")
     
     plt.show()
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=False)
     plt.close()
 
 
@@ -255,6 +292,20 @@ else:
 # Get the outcome_dic for each outcome
 outcome_dic = results_dict['results_dic'] if results_dict is not None else None
 
+# get some info
+model_type = results_dict['type'] if results_dict is not None else None
+try:
+    dataset_used = results_dict['dataset used'] if results_dict is not None else None
+except:
+    dataset_used = "N/A"
+time_created = results_dict['time_created'] if results_dict is not None else None
+
+# get the name of the data set used
+try:
+    test_set_name = results_dict['dataset used'] if results_dict is not None else None
+except:
+    test_set_name = 'N/A'
+
 # check if results_dict is Native
 if outcome_dic is not None and results_dict['type'] != 'Native':
     st.write("Results is not Native.")
@@ -267,6 +318,17 @@ if "df_total" not in st.session_state:
     st.session_state.df_total = pd.DataFrame()
 
 if results_dict is not None:
+    # give some information about the ML Test Result
+    with st.expander("▶️ ML Test Result Info"):
+        # write all test content in expander
+        st.markdown("##### **Name:**") 
+        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+        st.markdown('##### **Test:**')
+        st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
+        st.write(f'**Model Type:** {model_type}')
+        st.write(f'**Test Data Used:** {dataset_used}')
+        st.write(f'**Time Created:** {time_created}')
+
     try:
         # get the results table
         df = pd.DataFrame(results_dict['results_table'])
@@ -289,6 +351,8 @@ if results_dict is not None:
             df["Lower_CI_Gap (Train)"] = df["AUROC Score (Train)"] - df["AUROC CI Lower (Train)"]
         except:
             st.write("No Train Data results exists")
+
+        df["Data Set used"] = test_set_name
 
         # Prevent adding the same file multiple times after rerun
         if st.session_state.df_total.empty or f'{exp_name}-{test_set}' not in st.session_state.df_total["Exp_Name-Test Set"].values:
@@ -393,7 +457,7 @@ st.write("")  # Add for more space
 st.write("")
 
 # Visuize and compare ROC Curves
-st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC curve.")
+st.markdown("<h2 style='text-align: center;'>Visualize the ROC and P-R Curve</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC adn P-R curve.")
 
 # add outcome_dic to st.session_state.outcome_dic_total
 if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
@@ -443,12 +507,12 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
         st.session_state.outcome_options = []
 
     st.title("ROC Curve Analysis")
-
-    # Select multiple outcomes for the ROC curve plot
-    #st.write(st.session_state.outcome_options)
-
     if st.session_state.outcome_options:
         plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)
+
+    st.title("P-R Curve Analysis")
+    if st.session_state.outcome_options:
+        plot_pr(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
     st.title("SHAP Value Analysis", help="View the SHAP chart for each ROC curve.")
         
@@ -460,3 +524,6 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
         
     if st.session_state.outcome_options:
         plot_confusion_matrix(st.session_state.outcome_dic_total, st.session_state.outcome_options)
+
+
+    

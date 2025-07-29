@@ -461,8 +461,16 @@ exp_dic = models.find_one({"exp_name": exp_name})
 model_path = exp_dic['model_path'] if exp_dic is not None else None
 configuration = exp_dic['configuration'] if exp_dic is not None else None
 model_type = exp_dic['type'] if exp_dic is not None else None
+num_algo = len(exp_dic['algorithms']) if exp_dic is not None else None
 input_variables = exp_dic['input variables'] if exp_dic is not None else None
 outcomes = exp_dic['outcomes'] if exp_dic is not None else None
+train_data_patth = exp_dic['train_data_path'] if exp_dic is not None else None
+
+# get the time created
+try:
+    time_created = exp_dic['time_created']
+except:
+    time_created = 'N/A'
 
 # check if exp_name is Native if there is one
 if exp_name == None:
@@ -478,6 +486,17 @@ elif exp_name != None and model_type != 'Native':
     model_type = None
     input_variables = None
     test_set = None
+
+   
+# give some information about the ML Experiment
+if exp_dic != None:
+    with st.expander("▶️ ML Experiment Info"):
+        # write all model content in expander
+        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+        st.write(f'**Model Type:** {model_type}')
+        st.write(f'**Number of Algorithms:** {num_algo}')
+        st.write(f'**Train Data Path:** {train_data_patth}')
+        st.write(f'**Time Created:** {time_created}')
 
 
 # --- Step 2: Upload Data (Dynamic UI) ---
