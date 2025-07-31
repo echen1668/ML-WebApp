@@ -9,6 +9,7 @@ from sklearn import metrics
 from sklearn.metrics import roc_curve
 from sklearn.metrics import accuracy_score, precision_recall_curve
 from sklearn.metrics import auc
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import csv
 #import magic 
 import pickle
@@ -132,6 +133,61 @@ def plot_pr(data, options):
     ax.legend(loc="lower right", fontsize=8)
 
     st.pyplot(fig, use_container_width=False)  # Use Streamlit's function to display the plot
+
+
+def plot_confusion_matrix(data, option_cms):
+    # Dropdown to select the exp to plot shap values with
+    option_cm = st.selectbox("Select an experiment for CM", option_cms)
+    other, outcome = option_cm.rsplit('-', 1)
+    exp_name, test_set = other.rsplit('-', 1)
+
+    if "evaluation" in list(data[exp_name][test_set][outcome].keys()):
+        values = data[exp_name][test_set][outcome]["evaluation"] # get the ground truths and probs for the specified outcome
+    else: 
+        values = data[exp_name][test_set][outcome]
+
+    # get ground truth and predictions
+    y_true = [int(x) for x in values["Ground Truths"]]
+    y_pred = [int(x) for x in values["Predictions"]]
+    classes = sorted(set(y_true + y_pred))  # ensure all classes are included
+
+    y_true_np = np.array(y_true)
+    y_pred_np = np.array(y_pred)
+
+    cm = confusion_matrix(y_true_np, y_pred_np)
+    #st.write(cm)
+
+    # Plot Confusion matrix chart
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # Show the matrix with color
+    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    fig.colorbar(im, ax=ax)
+
+    # Set labels and title
+    ax.set_xlabel('Predicted Labels', fontsize=12)
+    ax.set_ylabel('True Labels', fontsize=12)
+    ax.set_title('Confusion Matrix', fontsize=12)
+
+    # Set tick labels
+    ax.set_xticks(np.arange(len(classes)))
+    ax.set_yticks(np.arange(len(classes)))
+    ax.set_xticklabels(classes, fontsize=12)
+    ax.set_yticklabels(classes, fontsize=12)
+
+    # Rotate the tick labels and set alignment
+    #plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
+    # Annotate each cell
+    for i in range(len(classes)):
+        for j in range(len(classes)):
+            ax.text(j, i, format(cm[i, j], 'd'),
+                    ha="center", va="center",
+                    color="white" if cm[i, j] > cm.max() / 2 else "black")
+    
+    plt.show()
+    st.pyplot(fig, use_container_width=False)
+    plt.close()
 
 
 def plot_shap(data, options):
@@ -437,6 +493,10 @@ if st.session_state.outcome_options and st.session_state.outcome_dic_total:
 st.title("P-R Curve Analysis", help="View the precision-recall curve for each selected outcome result.")
 if st.session_state.outcome_options and st.session_state.outcome_dic_total:
     plot_pr(st.session_state.outcome_dic_total, st.session_state.outcome_options)
+
+st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC/P-R curve")
+if st.session_state.outcome_options and st.session_state.outcome_dic_total:
+    plot_confusion_matrix(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
 st.title("Feature Importance Analysis", help="View the Feature Importance chart for each ROC curve.")
         

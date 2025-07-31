@@ -198,15 +198,15 @@ def plot_confusion_matrix(data, option_cm):
     fig.colorbar(im, ax=ax)
 
     # Set labels and title
-    ax.set_xlabel('Predicted Labels', fontsize=16)
-    ax.set_ylabel('True Labels', fontsize=16)
-    ax.set_title('Confusion Matrix', fontsize=16)
+    ax.set_xlabel('Predicted Labels', fontsize=12)
+    ax.set_ylabel('True Labels', fontsize=12)
+    ax.set_title('Confusion Matrix', fontsize=12)
 
     # Set tick labels
     ax.set_xticks(np.arange(len(classes)))
     ax.set_yticks(np.arange(len(classes)))
-    ax.set_xticklabels(classes, fontsize=16)
-    ax.set_yticklabels(classes, fontsize=16)
+    ax.set_xticklabels(classes, fontsize=12)
+    ax.set_yticklabels(classes, fontsize=12)
 
     # Rotate the tick labels and set alignment
     #plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
@@ -520,7 +520,7 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
         plot_shap(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
 
-    st.title("Confusion matrix Analysis", help="View the confusion matrix for each ROC curve")
+    st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC/P-R curve")
         
     if st.session_state.outcome_options:
         plot_confusion_matrix(st.session_state.outcome_dic_total, st.session_state.outcome_options)
