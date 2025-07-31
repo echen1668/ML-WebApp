@@ -211,7 +211,7 @@ st.write("This page helps you visualize the results of your ML model(s).")
 st.write("")  # Add for more space
 
 # Dropdown to select the experiment to display results from
-exp_name = st.selectbox("Select a saved ML experiment", exp_names)
+exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select a ML experiment from the database.")
 
 # Upload and look at a results table
 st.markdown("<h2 style='text-align: center;'>Visualize the Results Table</h2>", unsafe_allow_html=True)
@@ -222,8 +222,8 @@ results_dicts = results.find({"exp_name": exp_name})
 test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 #st.write(test_sets)
 
-# Dropdown to select the experiment to display results from
-test_set = st.selectbox("Select the test set used", test_sets)
+# Dropdown to select the test set to display results from
+test_set = st.selectbox("Select the test set used", test_sets, help="Select a specfic test result from the ML experiment.")
 
 if st.button('➕ Add Results', help="Add the result to the collective table."):
     # get the final results_dict
@@ -380,7 +380,7 @@ if "show_values_outcome_dic" not in st.session_state:
         st.session_state.show_values_outcome_dic = False
 
 # Button to display values of outcome_dic
-if st.button('Display the Values'):
+if st.button('Display the Values', help="Display a dictionary of all the results uploaded."):
     st.session_state.show_values_outcome_dic = True  # Set state to show values
 
 # Button to hide values (appears only when values are shown)
@@ -396,7 +396,7 @@ st.write("")
 
 
 # Visuize and compare ROC Curves
-st.markdown("<h2 style='text-align: center;'>Visualize the ROC and P-R Curve</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>Visualize the ROC and P-R Curve</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC and P-R curve.")
 
 # add outcome_dic to st.session_state.outcome_dic_total
 if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
@@ -430,15 +430,15 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
 #st.write(list_of_outcomes)
 
 
-st.title("ROC Curve Analysis")
+st.title("ROC Curve Analysis", help="View the receiver operating characteristic curve for each selected outcome result.")
 if st.session_state.outcome_options and st.session_state.outcome_dic_total:
     plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
-st.title("P-R Curve Analysis")
+st.title("P-R Curve Analysis", help="View the precision-recall curve for each selected outcome result.")
 if st.session_state.outcome_options and st.session_state.outcome_dic_total:
     plot_pr(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
-st.title("Feature Importance Analysis")
+st.title("Feature Importance Analysis", help="View the Feature Importance chart for each ROC curve.")
         
 if st.session_state.outcome_options and st.session_state.outcome_dic_total:
     plot_shap(st.session_state.outcome_dic_total, st.session_state.outcome_options)

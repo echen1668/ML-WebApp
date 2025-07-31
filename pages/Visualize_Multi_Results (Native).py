@@ -276,7 +276,7 @@ results_dicts = results.find({"exp_name": exp_name})
 test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 #st.write(test_sets)
 
-# Dropdown to select the experiment to display results from
+# Dropdown to select the test set to display results from
 test_set = st.selectbox("Select the test set used", test_sets, help="Select a specfic test result from the ML experiment.")
 
 # two options to decide what to do the named result
@@ -456,8 +456,8 @@ if len(st.session_state.df_total) != 0:
 st.write("")  # Add for more space
 st.write("")
 
-# Visuize and compare ROC Curves
-st.markdown("<h2 style='text-align: center;'>Visualize the ROC and P-R Curve</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC adn P-R curve.")
+# Visuize and compare ROC and P-R Curves
+st.markdown("<h2 style='text-align: center;'>Visualize the ROC and P-R Curve</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC and P-R curve.")
 
 # add outcome_dic to st.session_state.outcome_dic_total
 if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
@@ -506,11 +506,11 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
     if st.button('Clear All Plots', help="Clear the plot chart."):
         st.session_state.outcome_options = []
 
-    st.title("ROC Curve Analysis")
+    st.title("ROC Curve Analysis", help="View the receiver operating characteristic curve for each selected outcome result.")
     if st.session_state.outcome_options:
         plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 
-    st.title("P-R Curve Analysis")
+    st.title("P-R Curve Analysis", help="View the precision-recall curve for each selected outcome result.")
     if st.session_state.outcome_options:
         plot_pr(st.session_state.outcome_dic_total, st.session_state.outcome_options)
 

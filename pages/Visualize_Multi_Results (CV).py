@@ -61,7 +61,7 @@ def plot_roc(data, option):
     image_data = data[exp_name][test_set][algo][outcome]['roc'][test_type] # get the shap image
 
     # Plot SHAP chart
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(8, 6))
 
     ax.axis('off')  # Hides the axes
 
@@ -69,7 +69,7 @@ def plot_roc(data, option):
     image = Image.open(io.BytesIO(image_data))
     plt.imshow(image)
     plt.show()
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=False)
     plt.close()
 
 def plot_and_save_confusion_matrix_rate(data, option):
@@ -80,7 +80,7 @@ def plot_and_save_confusion_matrix_rate(data, option):
 
     avg_conf_matrix = data[exp_name][test_set][algo][outcome]['conf_matrix'][test_type] # get the shap image
 
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(8, 6))
     plt.imshow(avg_conf_matrix, cmap=plt.cm.Blues)
     plt.title(f'Average Confusion Matrix - {algo} - {outcome}')
     plt.colorbar()
@@ -100,7 +100,7 @@ def plot_and_save_confusion_matrix_rate(data, option):
         
     # Plot the figure
     plt.show()
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=False)
     plt.close()  # Close the plot to avoid displaying in console
 
 # connect to database
@@ -145,7 +145,7 @@ st.write("")  # Add for more space
 st.write("")
 
 # Dropdown to select the experiment to display results from
-exp_name = st.selectbox("Select a saved ML experiment", exp_names)
+exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select a ML experiment from the database.")
 
 # Upload and look at a results table
 st.markdown("<h2 style='text-align: center;'>Visualize the Results Table</h2>", unsafe_allow_html=True)
@@ -157,9 +157,9 @@ test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 #st.write(test_sets)
 
 # Dropdown to select the experiment to display results from
-test_set = st.selectbox("Select the test set used", test_sets)
+test_set = st.selectbox("Select the test set used", test_sets, help="Select a specfic test result from the ML experiment.")
 
-if st.button('Add Results'):
+if st.button('➕ Add Results', help="Add the result to the collective table."):
     # get the final results_dict
     results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 
@@ -168,6 +168,24 @@ else:
 
 # Get the outcome_dic for each outcome
 outcome_dic = results_dict['results_dic'] if results_dict is not None else None
+
+# get some info
+model_type = results_dict['type'] if results_dict is not None else None
+try:
+    dataset_used = results_dict['dataset used'] if results_dict is not None else None
+except:
+    dataset_used = "N/A"
+# get the time created if available
+try:
+    time_created = results_dict['time_created'] if results_dict is not None else None
+except:
+    time_created = "N/A"
+
+# get the name of the data set used
+try:
+    test_set_name = results_dict['dataset used'] if results_dict is not None else None
+except:
+    test_set_name = 'N/A'
 
 # check if results_dict is Native
 if outcome_dic is not None and results_dict['type'] != 'Native-CV':
@@ -181,6 +199,17 @@ if "df_total" not in st.session_state:
     st.session_state.df_total = pd.DataFrame()
 
 if results_dict is not None:
+    # give some information about the ML Test Result
+    with st.expander("▶️ ML Test Result Info"):
+        # write all test content in expander
+        st.markdown("##### **Name:**") 
+        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+        st.markdown('##### **Test:**')
+        st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
+        st.write(f'**Model Type:** {model_type}')
+        st.write(f'**Test Data Used:** {dataset_used}')
+        st.write(f'**Time Created:** {time_created}')
+
     try:
         # # get the results table
         df = pd.DataFrame(results_dict['results_table'])
@@ -212,8 +241,20 @@ if results_dict is not None:
     except Exception as e:
         st.error(f"Error loading file: {e}")
 
+# button to remove a specific experiment from the overall table and outcome_dic_total
+if st.button("➖ Remove Result", help="Remove the result to the collective table."):
+    st.session_state.df_total = st.session_state.df_total[~(st.session_state.df_total["Exp_Name-Test Set"] == f'{exp_name}-{test_set}')] # remove from table
+    
+    if exp_name in list(st.session_state.outcome_dic_total.keys()) and test_set in list(st.session_state.outcome_dic_total[exp_name]):
+        del st.session_state.outcome_dic_total[exp_name][test_set] # remove from outcome_dic_total
+        if len(st.session_state.outcome_dic_total[exp_name]) == 0:
+            del st.session_state.outcome_dic_total[exp_name]
+
+    # edit the ROC plot to remove all plots that involved the removed result
+    st.session_state.outcome_options = [item for item in st.session_state.outcome_options if f'{exp_name}-{test_set}' not in item]
+    
 # button to reset the table
-if st.button('Clear All Data'):
+if st.button('❌ Clear All Data', help="Clear the collective table."):
     st.session_state.df_total = pd.DataFrame()
     exp_names = None
     results_dict = None
@@ -237,10 +278,10 @@ if len(st.session_state.df_total) != 0:
     outcomes = ['All'] + st.session_state.df_total['Outcome'].unique().tolist()
         
     # Dropdown to select the metric to disply in a barchart
-    metric = st.selectbox("Select a Metric", options)
+    metric = st.selectbox("Select a Metric", options, help="Select a metric to view performace.")
 
     # choose which varaible to compare with
-    variable = st.radio("Choose an option:", ["Algorithm", "Outcome"])
+    variable = st.radio("Choose an option:", ["Algorithm", "Outcome"], help="Chose a specific algorithm or outcome to view its performace in all test results.")
 
     # error bars
     error_y = None # default
@@ -289,13 +330,13 @@ if len(st.session_state.df_total) != 0:
     # Add hover tooltip to show confidence intervals
 
     # Show the plot
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=False)
 
 st.write("")  # Add for more space
 st.write("")
 
 # Visuize and compare ROC Curves
-st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve and Confusion Matrix</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>Visualize the ROC Curve and Confusion Matrix</h2>", unsafe_allow_html=True, help="Select a specific ML experiment, test set, algorithim, and outcome to plot its ROC curve and Confusion Matrix.")
 
 # add outcome_dic to st.session_state.outcome_dic_total
 if (len(list(st.session_state.outcome_dic_total.keys())) == 0 or (exp_name not in list(st.session_state.outcome_dic_total.keys())) or test_set not in list(st.session_state.outcome_dic_total[exp_name].keys())) and outcome_dic is not None:
@@ -310,7 +351,7 @@ if "show_values_outcome_dic" not in st.session_state:
         st.session_state.show_values_outcome_dic = False
 
 # Button to display values of outcome_dic
-if st.button('Display the Values'):
+if st.button('Display the Values', help="Display a dictionary of all the results uploaded."):
     st.session_state.show_values_outcome_dic = True  # Set state to show values
 
 # Button to hide values (appears only when values are shown)
@@ -339,12 +380,12 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
     if outcome is not None:
 
         if st.button('Plot'):
-            st.title("ROC Curve Analysis")
+            st.title("ROC Curve Analysis", help="View the receiver operating characteristic curve for each selected outcome result.")
             plot_roc(st.session_state.outcome_dic_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}')
             #if f'{exp}-{test}-{algo}-{outcome}-{test_type}' not in st.session_state.outcome_options:
                 #st.session_state.outcome_options.append(f'{exp}-{test}-{algo}-{outcome}-{test_type}')
 
-            st.title("Confusion Matrix Analysis")
+            st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC curve")
             plot_and_save_confusion_matrix_rate(st.session_state.outcome_dic_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}') # gives the confusion matrix based on rates (TPR, FPR, etc.)
 
     # button to reset the table
