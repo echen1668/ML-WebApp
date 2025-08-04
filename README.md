@@ -1,3 +1,10 @@
+Requirements:
+- Install MongoDB
+- Install Python
+- Install Numpy, Sklearn, AutoGulon, Pandas, Seaborn, Matplotlib, Joblib
+
+
+
 How to run this app:
 
 1.) Open Anaconda Powershell Prompt
