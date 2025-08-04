@@ -356,10 +356,13 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
     
     st.success(f"✅ Experiment '{project_name}' completed successfully!")
     
-    if st.session_state.training_method in ["Train/Test Split", "Cross-Validation"]:
+    if st.session_state.training_method in ["Cross-Validation"]:
         st.subheader("Jump to Visualizing Results") # redirect to the testing section
-        st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+        st.page_link("pages/Visualize_Multi_Results (CV).py", label="Visualize Results", icon="📊")
     else:
+        st.subheader("Jump to Visualizing Results") # redirect to the testing section
+        st.page_link("pages/Visualize_Multi_Results (Native).py", label="Visualize Results", icon="📊")
+        st.write("or")
         st.subheader("Jump to Testing the Models") # redirect to the testing section
         st.page_link("pages/Testing_Native_Models.py", label="Test Models", icon="🧪")
 

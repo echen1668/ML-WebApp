@@ -670,6 +670,6 @@ if input_variables is not None and model_path is not None and (uploaded_test_set
 
             st.success(f"✅ Testing '{exp_name}' completed successfully!")
             st.subheader("Jump to Visualizing Results") # redirect to the testing section
-            st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+            st.page_link("pages/Visualize_Multi_Results (AutoGluon).py", label="Visualize Results", icon="📊")
         else:
             st.error("Test Result of the same name already exists. Please change Test Set name.")
