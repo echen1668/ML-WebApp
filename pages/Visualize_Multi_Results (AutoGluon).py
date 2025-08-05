@@ -281,19 +281,11 @@ test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 # Dropdown to select the test set to display results from
 test_set = st.selectbox("Select the test set used", test_sets, help="Select a specfic test result from the ML experiment.")
 
-if st.button('➕ Add Results', help="Add the result to the collective table."):
-    # get the final results_dict
-    results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
-
-else:
-    results_dict = None
-
-# Get the outcome_dic for each outcome
-outcome_dic = results_dict['results_dic'] if results_dict is not None else None
+# get the final results_dict
+results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 
 # get some info
 model_type = results_dict['type'] if results_dict is not None else None
-dataset_used = results_dict['dataset used'] if results_dict is not None else None
 time_created = results_dict['time_created'] if results_dict is not None else None
 
 # get the name of the data set used
@@ -302,27 +294,31 @@ try:
 except:
     test_set_name = 'N/A'
 
-# check if results_dict is AutoGulon
-if outcome_dic is not None and results_dict['type'] != 'AutoGulon':
-    st.write("Results is not AutoGulon.")
-    results_dict = None
-    outcome_dic = None
+# give some information about the ML Test Result
+with st.expander("▶️ ML Test Result Info"):
+    # write all test content in expander
+    st.markdown("##### **Name:**") 
+    st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+    st.markdown('##### **Test:**')
+    st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
+    st.write(f'**Model Type:** {model_type}')
+    st.write(f'**Test Data Used:** {test_set_name}')
+    st.write(f'**Time Created:** {time_created}')
 
 # Initialize session state for df_total
 if "df_total" not in st.session_state:
     st.session_state.df_total = pd.DataFrame()
 
-if results_dict is not None:
-    # give some information about the ML Test Result
-    with st.expander("▶️ ML Test Result Info"):
-        # write all test content in expander
-        st.markdown("##### **Name:**") 
-        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
-        st.markdown('##### **Test:**')
-        st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
-        st.write(f'**Model Type:** {model_type}')
-        st.write(f'**Test Data Used:** {dataset_used}')
-        st.write(f'**Time Created:** {time_created}')
+if results_dict is not None and  st.button('➕ Add Results', help="Add the result to the collective table."):
+
+    # Get the outcome_dic for each outcome
+    outcome_dic = results_dict['results_dic'] if results_dict is not None else None
+
+    # check if results_dict is AutoGulon
+    if outcome_dic is not None and results_dict['type'] != 'AutoGulon':
+        st.write("Results is not AutoGulon.")
+        results_dict = None
+        outcome_dic = None
 
     try:
         # # get the results table
@@ -351,11 +347,14 @@ if results_dict is not None:
 
     except Exception as e:
         st.error(f"Error loading file: {e}")
+else:
+    outcome_dic = None
 
 # button to remove a specific experiment from the overall table and outcome_dic_total
 if st.button("➖ Remove Result", help="Remove the result to the collective table."):
-    st.session_state.df_total = st.session_state.df_total[~(st.session_state.df_total["Exp_Name-Test Set"] == f'{exp_name}-{test_set}')] # remove from table
-    
+    #st.write(st.session_state.df_total)
+    st.session_state.df_total = st.session_state.df_total[~(st.session_state.df_total["Exp_Name-Test Set"] == f'{exp_name}-{test_set}')] #if len(st.session_state.df_total) > 0 else st.session_state.df_total # remove from table
+
     if exp_name in list(st.session_state.outcome_dic_total.keys()) and test_set in list(st.session_state.outcome_dic_total[exp_name]):
         del st.session_state.outcome_dic_total[exp_name][test_set] # remove from outcome_dic_total
         if len(st.session_state.outcome_dic_total[exp_name]) == 0:
@@ -382,7 +381,7 @@ if len(st.session_state.df_total) != 0:
       # List of all column names excluding the specified ones
     columns_to_exclude = ["Exp_Name-Test Set", 'Test Set', 'Algorithm', 'Exp_Name', 'Outcome', 'AUROC CI Lower', 'AUROC CI Upper', 'AUROC CI Lower (Train)', 'AUROC CI Upper (Train)', 
                           'Cutoff value', 'Best Model', 'TN', 'TP', 'FN', 'FP', 'P', 'N', 'P (Train)', 'N (Train)',
-                          'Upper_CI_Gap', 'Lower_CI_Gap', "Upper_CI_Gap (Train)", "Lower_CI_Gap (Train)", "AUROC CI Upper (Train)", "AUROC CI Lower (Train)"]
+                          'Upper_CI_Gap', 'Lower_CI_Gap', "Upper_CI_Gap (Train)", "Lower_CI_Gap (Train)", "AUROC CI Upper (Train)", "AUROC CI Lower (Train)", 'Data Set used']
     options = [col for col in st.session_state.df_total.columns if col not in columns_to_exclude]
         
     # Dropdown to select the metric to disply in a barchart

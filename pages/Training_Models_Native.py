@@ -336,7 +336,6 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
             # Convert results_df to list of dictionaries
             results_dic = results_df.to_dict(orient='records')
-            results_dic
 
             # get the current time
             current_datetime = datetime.now()
@@ -351,6 +350,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 'dataset used': train_set['Name'],
                 "time_created": current_time
             }
+            # 'threshold used': ,
 
             results.insert_one(result) # insert one dictonary
     

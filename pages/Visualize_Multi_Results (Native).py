@@ -240,7 +240,7 @@ exp_names = db.results.distinct("exp_name", {"type": "Native"})
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="(Native) Visualize ML Results",
+    page_title="(Sklearn) Visualize ML Results",
     page_icon="📊",
     layout="wide"
 )
@@ -258,7 +258,7 @@ if st.button('Back'):
     st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
 
 # Title
-st.title("🔥 Visualize ML Results (Native)")
+st.title("🔥 Visualize ML Results (Sklearn)")
 
 st.write("This page helps you visualize the results of your ML model(s).")
 st.write("")  # Add for more space
@@ -279,25 +279,11 @@ test_sets = [doc["test set"] for doc in results_dicts if "test set" in doc]
 # Dropdown to select the test set to display results from
 test_set = st.selectbox("Select the test set used", test_sets, help="Select a specfic test result from the ML experiment.")
 
-# two options to decide what to do the named result
-#left_column, right_column = st.columns(2)
-
-if st.button('➕ Add Results', help="Add the result to the collective table."):
-    # get the final results_dict
-    results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
-
-else:
-    results_dict = None
-
-# Get the outcome_dic for each outcome
-outcome_dic = results_dict['results_dic'] if results_dict is not None else None
+# get the final results_dict
+results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 
 # get some info
 model_type = results_dict['type'] if results_dict is not None else None
-try:
-    dataset_used = results_dict['dataset used'] if results_dict is not None else None
-except:
-    dataset_used = "N/A"
 time_created = results_dict['time_created'] if results_dict is not None else None
 
 # get the name of the data set used
@@ -306,28 +292,32 @@ try:
 except:
     test_set_name = 'N/A'
 
-# check if results_dict is Native
-if outcome_dic is not None and results_dict['type'] != 'Native':
-    st.write("Results is not Native.")
-    results_dict = None
-    outcome_dic = None
+# give some information about the ML Test Result
+with st.expander("▶️ ML Test Result Info"):
+    # write all test content in expander
+    st.markdown("##### **Name:**") 
+    st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
+    st.markdown('##### **Test:**')
+    st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
+    st.write(f'**Model Type:** {model_type}')
+    st.write(f'**Test Data Used:** {test_set_name}')
+    st.write(f'**Time Created:** {time_created}')
+
 
 
 # Initialize session state for df_total
 if "df_total" not in st.session_state:
     st.session_state.df_total = pd.DataFrame()
 
-if results_dict is not None:
-    # give some information about the ML Test Result
-    with st.expander("▶️ ML Test Result Info"):
-        # write all test content in expander
-        st.markdown("##### **Name:**") 
-        st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
-        st.markdown('##### **Test:**')
-        st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
-        st.write(f'**Model Type:** {model_type}')
-        st.write(f'**Test Data Used:** {dataset_used}')
-        st.write(f'**Time Created:** {time_created}')
+if results_dict is not None and st.button('➕ Add Results', help="Add the result to the collective table."):
+    # Get the outcome_dic for each outcome
+    outcome_dic = results_dict['results_dic'] if results_dict is not None else None
+
+    # check if results_dict is Native
+    if outcome_dic is not None and results_dict['type'] != 'Native':
+        st.write("Results is not Native.")
+        results_dict = None
+        outcome_dic = None
 
     try:
         # get the results table
@@ -361,6 +351,9 @@ if results_dict is not None:
 
     except Exception as e:
         st.error(f"Error loading file: {e}")
+
+else:
+    outcome_dic = None
 
 # button to remove a specific experiment from the overall table and outcome_dic_total
 if st.button("➖ Remove Result", help="Remove the result to the collective table."):

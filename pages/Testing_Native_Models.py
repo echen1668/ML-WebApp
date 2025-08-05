@@ -338,7 +338,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
 def generate_results_table(results_dictonary):
     # Initialize an empty list to collect rows
     rows = []
-    no_results = []
+    #no_results = []
     
     for _, (algo, outcomes) in enumerate(results_dictonary.items()):
 
@@ -381,11 +381,11 @@ def generate_results_table(results_dictonary):
             rows.append(new_row)
 
     # Specifying the list of outcomes with no results for demonstration purposes
-    print(f'Outcomes with no results are {no_results}')
+    #print(f'Outcomes with no results are {no_results}')
 
     # Writing the output to a text file
-    with open("outcomes_no_results.txt", "w") as file:
-        file.write(f"Outcomes with no results are {no_results}")
+    #with open("outcomes_no_results.txt", "w") as file:
+        #file.write(f"Outcomes with no results are {no_results}")
 
     # Convert the list of rows into a DataFrame
     results_df = pd.DataFrame(rows)
@@ -690,7 +690,6 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
 
                     # Convert results_df to list of dictionaries
                     results_dic = results_df.to_dict(orient='records')
-                    results_dic
                     # get the current time
                     current_datetime = datetime.now()
                     current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
