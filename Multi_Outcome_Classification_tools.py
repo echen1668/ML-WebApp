@@ -2291,7 +2291,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
         #st.write(roc_train_filename)
         x = len(roc_train_filename)
-        st.write(f"Length of ROC file path name is {x}")
+        #st.write(f"Length of ROC file path name is {x}")
         # check if path names are too long
         if len(roc_train_filename) >= 160:
             # if path name is too long, shorten it 
