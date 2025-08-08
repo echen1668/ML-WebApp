@@ -107,6 +107,15 @@ from Multi_Outcome_Classification_tools import multi_outcome_hyperparameter_bina
 from Common_Tools import sanitize_filename, generate_configuration_file, generate_configuration_template, generate_results_table, generate_congfig_file, get_avg_results_dic, wrap_text_excel, expand_cell_excel, grid_excel, generate_all_idx_files, upload_data, load_data, save_data, data_prep, data_prep_train_set, parse_exp_multi_outcomes, setup_multioutcome_binary, refine_binary_outcomes, generate_joblib_model
 from roctools import full_roc_curve, plot_roc_curve
 
+algo_shortnames = { # short names for ML Algorithims
+    "Random Forest": "RF",
+    "XGBoost": "XGB",
+    "Cat Boost": "CAT",
+    "Extremely randomized trees": "XT", 
+    "LightGBM": "GBM",
+    "KNearest N.": "KNN", 
+}
+
 # custom models with custom hyperparameters
 global custom_hyperparameters_sample
 custom_hyperparameters_sample = {
@@ -510,6 +519,10 @@ if project_name in exp_names:
     st.error("Experiment with that name already exists")
     is_valid = True
     configuration_dic = None
+elif project_name is None or project_name=="" or project_name.isspace():
+    st.info("Please enter a name for the experiment")
+    is_valid = True
+    configuration_dic = None
 elif '/' in project_name or '\\' in project_name:
     st.error("Invalid Experiment Name (Cannot have / or \\)")
     is_valid = True
@@ -738,6 +751,10 @@ elif configure_options == "Upload a file":
         file_name=f"{project_name}.json",
         mime="application/json"
     )
+
+    with st.expander("▶️ List of AutoGulon Algorithims to use."):
+        st.write("Please use the short versions of the algo names shown on the **right**.")
+        st.write(algo_shortnames)
 
     # File uploader for the training
     uploaded_config_file= st.file_uploader("Upload a Configuration File")

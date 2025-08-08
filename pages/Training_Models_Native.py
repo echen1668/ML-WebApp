@@ -103,6 +103,19 @@ from Multi_Outcome_Classification_tools import multi_outcome_hyperparameter_bina
 from Common_Tools import generate_configuration_file, generate_configuration_template, generate_results_table, generate_congfig_file, get_avg_results_dic, wrap_text_excel, expand_cell_excel, grid_excel, generate_all_idx_files, upload_data, load_data, save_data, data_prep, data_prep_train_set, parse_exp_multi_outcomes, setup_multioutcome_binary, refine_binary_outcomes, generate_joblib_model
 from roctools import full_roc_curve, plot_roc_curve
 
+algo_shortnames = { # short names for ML Algorithims
+    "Random Forest": "rf",
+    "XGBoost": "xgb",
+    "Cat Boost": "cat",
+    "SGD Elastic": "sgd_elastic",
+    "SGD L2": "sgd_l2",
+    "Logistic Reg. L2": "lr_l2",
+    "Logistic Reg.": "lr", 
+    "Descision Tree": "dt", 
+    "SVM": "svm",
+    "KNearest N.": "knn", 
+}
+
 data_sets = {}
 
 # connect to database
@@ -467,17 +480,14 @@ if 'training_method' not in st.session_state:
 # --- Step 1: Experiment Setup ---
 st.header("Step 1: Define Experiment and Data Strategy")
 project_name = st.text_input("Experiment Name", help="Enter a unique name for this experiment.")
-st.radio(
-    "Select Training Method",
-    ["Train/Test Split", "Train Whole Set", "Cross-Validation"],
-    key="training_method",
-    horizontal=True,
-    help="Choose how to evaluate model."
-)
 
 #st.write(exp_names)
 if project_name in exp_names:
     st.error("Experiment with that name already exists")
+    is_valid = True
+    configuration_dic = None
+elif project_name is None or project_name=="" or project_name.isspace():
+    st.info("Please enter a name for the experiment")
     is_valid = True
     configuration_dic = None
 elif '/' in project_name or '\\' in project_name:
@@ -486,6 +496,14 @@ elif '/' in project_name or '\\' in project_name:
     configuration_dic = None
 else:
     is_valid = False
+
+st.radio(
+    "Select Training Method",
+    ["Train/Test Split", "Train Whole Set", "Cross-Validation"],
+    key="training_method",
+    horizontal=True,
+    help="Choose how to evaluate model."
+)
 
 # --- Step 2: Upload Data (Dynamic UI) ---
 st.header("Step 2: Upload Data")
@@ -736,6 +754,10 @@ elif configure_options == "Upload a file":
         file_name=f"{project_name}.json",
         mime="application/json"
     )
+
+    with st.expander("▶️ List of ML Algorithims to use."):
+        st.write("Please use the short versions of the algo names shown on the **right**.")
+        st.write(algo_shortnames)
 
     # File uploader for the training
     uploaded_config_file= st.file_uploader("Upload a Configuration File")
