@@ -34,12 +34,46 @@ from datetime import datetime
 import pprint
 import pymongo
 from pymongo import MongoClient
-
+from streamlit_cookies_manager import EncryptedCookieManager
 from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data, save_data
 from roctools import full_roc_curve, plot_roc_curve
 
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="(Sklearn) Upload and Test ML Model",
+    page_icon="🧪",
+    layout="wide"
+)
+# back button to return to main page
+if st.button('Back'):
+    st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
+
+# Title
+st.title("🧪 Upload and Test ML Model (Sklearn)")
+st.write("Test multiple models based on the Sklearn/Native framework using new/unseen data.")
+
+# Check if client_name was passed
+cookies = EncryptedCookieManager(prefix="mlhub_", password="some_secret_key")
+if not cookies.ready():
+    st.stop()
+
+# Check cookies first
+if "client_name" in cookies:
+    st.session_state["client_name"] = cookies["client_name"]
+    #st.write(cookies["client_name"])
+#else:
+    #st.error("No found")
+
+# then check in session state
+if "client_name" not in st.session_state:
+    st.error("No database connection found. Please go back to the main page.")
+    st.stop()
+
+client_name = st.session_state["client_name"]
+
 # connect to database
-client = MongoClient('10.14.1.12', 27017)
+#client = MongoClient('10.14.1.12', 27017)
+client = MongoClient(client_name, 27017)
 
 # create the database if it does not already exists
 db = client.machine_learning_database
@@ -429,21 +463,7 @@ def plot_feature_importance(feature_importance_dic, directory_name):
         plt.close()
 
         #plt.show()
-        
-# --- Page Configuration ---
-st.set_page_config(
-    page_title="(Sklearn) Upload and Test ML Model",
-    page_icon="🧪",
-    layout="wide"
-)
-# back button to return to main page
-if st.button('Back'):
-    st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
-
-# Title
-st.title("🧪 Upload and Test ML Model (Sklearn)")
-
-st.write("Test multiple models based on the Sklearn/Native framework using new/unseen data.")
+    
 
 # --- Step 1: Retrive a ML Experiment ---
 st.header("Step 1: Retrive a ML Experiment")
@@ -464,7 +484,7 @@ model_type = exp_dic['type'] if exp_dic is not None else None
 num_algo = len(exp_dic['algorithms']) if exp_dic is not None else None
 input_variables = exp_dic['input variables'] if exp_dic is not None else None
 outcomes = exp_dic['outcomes'] if exp_dic is not None else None
-train_data_patth = exp_dic['train_data_path'] if exp_dic is not None else None
+train_data = exp_dic['train_data'] if exp_dic is not None else None
 
 # get the time created
 try:
@@ -495,7 +515,7 @@ if exp_dic != None:
         st.markdown(f'##### <u>{exp_name}</u>', unsafe_allow_html=True)
         st.write(f'**Model Type:** {model_type}')
         st.write(f'**Number of Algorithms:** {num_algo}')
-        st.write(f'**Train Data Path:** {train_data_patth}')
+        st.write(f'**Train Data:** {train_data}')
         st.write(f'**Time Created:** {time_created}')
 
 

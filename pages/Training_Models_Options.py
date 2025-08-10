@@ -23,7 +23,7 @@ rstate = 12
 
 # import module
 import streamlit as st
-
+from streamlit_cookies_manager import EncryptedCookieManager
 from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel
 from roctools import full_roc_curve, plot_roc_curve
 
@@ -40,7 +40,6 @@ if st.button('Back'):
 
 # Title
 st.title("Train and Develop ML Model")
-
 st.write("This page allows you to train and develop your machine learning model.")
 
 # AutoGulon Models

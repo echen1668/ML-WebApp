@@ -98,7 +98,7 @@ import pprint
 import pymongo
 from pymongo import MongoClient
 import streamlit as st
-
+from streamlit_cookies_manager import EncryptedCookieManager
 from Multi_Outcome_Classification_tools import multi_outcome_hyperparameter_binary, multi_outcome_hyperparameter_binary_train_and_test, multi_outcome_cv
 from Common_Tools import generate_configuration_file, generate_configuration_template, generate_results_table, generate_congfig_file, get_avg_results_dic, wrap_text_excel, expand_cell_excel, grid_excel, generate_all_idx_files, upload_data, load_data, save_data, data_prep, data_prep_train_set, parse_exp_multi_outcomes, setup_multioutcome_binary, refine_binary_outcomes, generate_joblib_model
 from roctools import full_roc_curve, plot_roc_curve
@@ -116,10 +116,46 @@ algo_shortnames = { # short names for ML Algorithims
     "KNearest N.": "knn", 
 }
 
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="(Sklearn) Create a New Experiment",
+    page_icon="🔥",
+    layout="wide"
+)
+
 data_sets = {}
 
+# back button to return to main page
+if st.button('Back'):
+    st.switch_page("pages/Training_Models_Options.py")  # Redirect to the main back 
+
+# --- UI Initialization ---
+st.title("🚀-🔥 Create a New Experiment (Sklearn)")
+st.markdown("Configure and launch a new model training workflow using the traditional/native Sklearn framework.")
+
+# Check if client_name was passed
+cookies = EncryptedCookieManager(prefix="mlhub_", password="some_secret_key")
+if not cookies.ready():
+    st.stop()
+
+# Check cookies first
+if "client_name" in cookies:
+    st.session_state["client_name"] = cookies["client_name"]
+    #st.write(cookies["client_name"])
+#else:
+    #st.error("No found")
+
+# then check in session state
+if "client_name" not in st.session_state:
+    st.error("No database connection found. Please go back to the main page.")
+    st.stop()
+
+client_name = st.session_state["client_name"]
+
+
 # connect to database
-client = MongoClient('10.14.1.12', 27017)
+#client = MongoClient('10.14.1.12', 27017)
+client = MongoClient(client_name, 27017)
 
 # create the database if it does not already exists
 db = client.machine_learning_database
@@ -316,7 +352,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 "input variables": input_cols,
                 'outcomes': label_cols,
                 "configuration": configuration_dic,
-                "train_data_path": os.path.join(project_folder, train_set['Name']),
+                "train_data": train_set["Name"],
                 "time_created": current_time
             }
 
@@ -379,17 +415,6 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         st.subheader("Jump to Testing the Models") # redirect to the testing section
         st.page_link("pages/Testing_Native_Models.py", label="Test Models", icon="🧪")
 
-
-# --- Page Configuration ---
-st.set_page_config(
-    page_title="(Sklearn) Create a New Experiment",
-    page_icon="🔥",
-    layout="wide"
-)
-
-# back button to return to main page
-if st.button('Back'):
-    st.switch_page("pages/Training_Models_Options.py")  # Redirect to the main back 
 
 def create_column_summary(df, index_df): # get a summry of the dataframe
     # get the selected columns
@@ -464,11 +489,6 @@ def gen_idx(df_train, train_set_name, nexp:int=1, sheets:list=None):
     )
 
     return indexFileName
-
-
-# --- UI Initialization ---
-st.title("🚀-🔥 Create a New Experiment (Sklearn)")
-st.markdown("Configure and launch a new model training workflow using the traditional/native Sklearn framework.")
 
 # (The rest of the UI code is the same as before)
 # ...

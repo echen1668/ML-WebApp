@@ -34,23 +34,7 @@ from pymongo import MongoClient
 
 # import module
 import streamlit as st
-
-# connect to database
-client = MongoClient('10.14.1.12', 27017)
-# create the database if it does not already exists
-db = client.machine_learning_database
-# create tables for models in the databse
-models = db.models
-# create the results collection if it does not already exists
-results = db.results
-# create the results if it does not already exists
-datasets = db.datasets
-# get all unique exp. names from results collection
-exp_names_results = db.results.distinct("exp_name")
-# get all unique exp. names from results collection
-exp_names_models = db.models.distinct("exp_name")
-# get all testing data names from database
-data_names = db.datasets.distinct("data_name")
+from streamlit_cookies_manager import EncryptedCookieManager
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -68,6 +52,44 @@ if st.button('Back'):
 
 st.title("🔧 Manage Experiments, Results, and Datasets")
 st.markdown("This page allows you to delete or rename old models/experiments, old results, and saved datasets.")
+
+# Check if client_name was passed
+cookies = EncryptedCookieManager(prefix="mlhub_", password="some_secret_key")
+if not cookies.ready():
+    st.stop()
+
+# Check cookies first
+if "client_name" in cookies:
+    st.session_state["client_name"] = cookies["client_name"]
+    #st.write(cookies["client_name"])
+#else:
+    #st.error("No found")
+
+# then check in session state
+if "client_name" not in st.session_state:
+    st.error("No database connection found. Please go back to the main page.")
+    st.stop()
+
+client_name = st.session_state["client_name"]
+
+# connect to database
+#client = MongoClient('10.14.1.12', 27017)
+client = MongoClient(client_name, 27017)
+
+# create the database if it does not already exists
+db = client.machine_learning_database
+# create tables for models in the databse
+models = db.models
+# create the results collection if it does not already exists
+results = db.results
+# create the results if it does not already exists
+datasets = db.datasets
+# get all unique exp. names from results collection
+exp_names_results = db.results.distinct("exp_name")
+# get all unique exp. names from results collection
+exp_names_models = db.models.distinct("exp_name")
+# get all testing data names from database
+data_names = db.datasets.distinct("data_name")
 
 st.divider()
 

@@ -34,28 +34,8 @@ from pymongo import MongoClient
 
 # import module
 import streamlit as st
-
+from streamlit_cookies_manager import EncryptedCookieManager
 from Common_Tools import upload_data
-
-# connect to database
-client = MongoClient('10.14.1.12', 27017)
-# create the database if it does not already exists
-db = client.machine_learning_database
-# create tables for models in the databse
-models = db.models
-# create the results collection if it does not already exists
-results = db.results
-# create the results if it does not already exists
-datasets = db.datasets
-# get all unique exp. names from results collection
-exp_names_results = db.results.distinct("exp_name")
-# get all unique exp. names from models collection
-exp_names_models = db.models.distinct("exp_name")
-# get all unique exp. name from both model and results collection
-exp_names = list(set(exp_names_models + exp_names_results))
-exp_names.sort()
-# get all testing data names from database
-data_names = db.datasets.distinct("data_name")
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -81,9 +61,48 @@ if st.button('Back'):
 
 
 # --- Page Content ---
-
 st.title("🗒️ Database List")
 st.markdown("This page allows you to view a list of either all experiments done or datasets saved that are stored in the database.")
+
+# Check if client_name was passed
+cookies = EncryptedCookieManager(prefix="mlhub_", password="some_secret_key")
+if not cookies.ready():
+    st.stop()
+
+# Check cookies first
+if "client_name" in cookies:
+    st.session_state["client_name"] = cookies["client_name"]
+    #st.write(cookies["client_name"])
+#else:
+    #st.error("No found")
+
+# then check in session state
+if "client_name" not in st.session_state:
+    st.error("No database connection found. Please go back to the main page.")
+    st.stop()
+
+client_name = st.session_state["client_name"]
+
+# connect to database
+#client = MongoClient('10.14.1.12', 27017)
+client = MongoClient(client_name, 27017)
+# create the database if it does not already exists
+db = client.machine_learning_database
+# create tables for models in the databse
+models = db.models
+# create the results collection if it does not already exists
+results = db.results
+# create the results if it does not already exists
+datasets = db.datasets
+# get all unique exp. names from results collection
+exp_names_results = db.results.distinct("exp_name")
+# get all unique exp. names from models collection
+exp_names_models = db.models.distinct("exp_name")
+# get all unique exp. name from both model and results collection
+exp_names = list(set(exp_names_models + exp_names_results))
+exp_names.sort()
+# get all testing data names from database
+data_names = db.datasets.distinct("data_name")
 
 st.divider()
 
@@ -134,7 +153,10 @@ for exp_name in filtered_exp_names:
         time_created = 'N/A'
 
     # get the training data path name
-    #train_data_path = model['train_data_path'] if model is not None else None
+    try:
+        train_data = model['train_data'] if model is not None else None
+    except:
+        train_data = 'N/A'
 
     # get all results for that ML experiment
     all_results = list(results.find({"exp_name": exp_name}))
@@ -156,7 +178,7 @@ for exp_name in filtered_exp_names:
     container.write(f'**Model Type:** {model_type}')
     container.write(f'**Time Created:** {time_created}')
     container.write(f'**Number of Algorithms:** {num_algo}')
-    #container.write(f'**Train Data Path:** {train_data_path}')
+    container.write(f'**Train Data:** {train_data}')
 
     # list of algorthims
     if model_type == "Native":

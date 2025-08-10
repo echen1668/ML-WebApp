@@ -34,9 +34,55 @@ from pymongo import MongoClient
 
 # import module
 import streamlit as st
-
+from streamlit_cookies_manager import EncryptedCookieManager
 from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel
 from roctools import full_roc_curve, plot_roc_curve
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="(Sklearn-CV) Visualize ML Results",
+    page_icon="📊",
+    layout="wide"
+)
+
+# back button to return to main page
+if st.button('Back'):
+    st.session_state.df_total = pd.DataFrame()
+    exp_names = None
+    results_dict = None
+    st.session_state.outcome_dic_total = {}
+    list_of_outcomes = []
+    outcome_options= []
+    outcome_dic = None
+    st.session_state.outcome_options = []
+    st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
+
+# Title
+st.title("❌ Visualize ML Results (Sklearn) (Cross Validation)")
+st.write("This page helps you visualize the results of your ML model(s). This is for Cross Validation")
+
+# Check if client_name was passed
+cookies = EncryptedCookieManager(prefix="mlhub_", password="some_secret_key")
+if not cookies.ready():
+    st.stop()
+
+# Check cookies first
+if "client_name" in cookies:
+    st.session_state["client_name"] = cookies["client_name"]
+    #st.write(cookies["client_name"])
+#else:
+    #st.error("No found")
+
+# then check in session state
+if "client_name" not in st.session_state:
+    st.error("No database connection found. Please go back to the main page.")
+    st.stop()
+
+client_name = st.session_state["client_name"]
+
+# connect to database
+#client = MongoClient('10.14.1.12', 27017)
+client = MongoClient(client_name, 27017)
 
 # Initialize session state for df_total
 if "outcome_dic_total" not in st.session_state:
@@ -103,9 +149,6 @@ def plot_and_save_confusion_matrix_rate(data, option):
     st.pyplot(fig, use_container_width=False)
     plt.close()  # Close the plot to avoid displaying in console
 
-# connect to database
-client = MongoClient('10.14.1.12', 27017)
-
 # create the database if it does not already exists
 db = client.machine_learning_database
 
@@ -118,29 +161,6 @@ results = db.results
 # get all unique exp. names from results collection
 exp_names = db.results.distinct("exp_name", {"type": "Native-CV"})
 
-# --- Page Configuration ---
-st.set_page_config(
-    page_title="(Sklearn-CV) Visualize ML Results",
-    page_icon="📊",
-    layout="wide"
-)
-
-# back button to return to main page
-if st.button('Back'):
-    st.session_state.df_total = pd.DataFrame()
-    exp_names = None
-    results_dict = None
-    st.session_state.outcome_dic_total = {}
-    list_of_outcomes = []
-    outcome_options= []
-    outcome_dic = None
-    st.session_state.outcome_options = []
-    st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
-
-# Title
-st.title("❌ Visualize ML Results (Sklearn) (Cross Validation)")
-
-st.write("This page helps you visualize the results of your ML model(s). This is for Cross Validation")
 st.write("")  # Add for more space
 st.write("")
 
