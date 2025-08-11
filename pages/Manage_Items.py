@@ -91,12 +91,9 @@ exp_names_models = db.models.distinct("exp_name")
 # get all testing data names from database
 data_names = db.datasets.distinct("data_name")
 
-st.divider()
+#st.divider()
 
 delete, rename = st.tabs(["🗑️ Delete Something?", "✏️ Rename Something?"])
-
-
-
 
 
 ########################

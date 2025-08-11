@@ -104,7 +104,7 @@ exp_names.sort()
 # get all testing data names from database
 data_names = db.datasets.distinct("data_name")
 
-st.divider()
+#st.divider()
 
 experiments, datasetlist = st.tabs(["🧪 Experiments", "📒 Datasets"])
 

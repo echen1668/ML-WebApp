@@ -161,9 +161,6 @@ results = db.results
 # get all unique exp. names from results collection
 exp_names = db.results.distinct("exp_name", {"type": "Native-CV"})
 
-st.write("")  # Add for more space
-st.write("")
-
 # Dropdown to select the experiment to display results from
 exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select a ML experiment from the database.")
 
