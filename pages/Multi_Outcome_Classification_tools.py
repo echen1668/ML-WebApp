@@ -6,7 +6,7 @@ import sklearn as scikit_learn
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from scipy import interp
+#from scipy import interp
 from scipy.stats import norm
 import openpyxl 
 from openpyxl import load_workbook
@@ -54,7 +54,7 @@ from sklearn.metrics import classification_report
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix
-from scipy import interp
+#from scipy import interp
 from scipy.stats import norm
 import openpyxl 
 from openpyxl import load_workbook
