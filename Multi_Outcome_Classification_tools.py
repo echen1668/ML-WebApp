@@ -6,7 +6,7 @@ import sklearn as scikit_learn
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from scipy import interp
+#from scipy import interp
 from scipy.stats import norm
 import openpyxl 
 from openpyxl import load_workbook
@@ -54,7 +54,7 @@ from sklearn.metrics import classification_report
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix
-from scipy import interp
+#from scipy import interp
 from scipy.stats import norm
 import openpyxl 
 from openpyxl import load_workbook
@@ -2454,7 +2454,7 @@ def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo
         plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
         explainer = shap.Explainer(model.predict, X_test)
         #shap_values = explainer.shap_values(X_test)
-        shap_values = explainer(X_test, max_evals=(2 * (X_test.shape[1] + 1)))
+        shap_values = explainer(X_test, max_evals=2**X_test.shape[1])
                 
         try:
             shap.summary_plot(shap_values, X_test, plot_type='dot', max_display = 10, show=False) 
