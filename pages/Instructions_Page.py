@@ -37,26 +37,6 @@ import streamlit as st
 
 from Common_Tools import upload_data
 
-# connect to database
-client = MongoClient('10.14.1.12', 27017)
-# create the database if it does not already exists
-db = client.machine_learning_database
-# create tables for models in the databse
-models = db.models
-# create the results collection if it does not already exists
-results = db.results
-# create the results if it does not already exists
-datasets = db.datasets
-# get all unique exp. names from results collection
-exp_names_results = db.results.distinct("exp_name")
-# get all unique exp. names from models collection
-exp_names_models = db.models.distinct("exp_name")
-# get all unique exp. name from both model and results collection
-exp_names = list(set(exp_names_models + exp_names_results))
-exp_names.sort()
-# get all testing data names from database
-data_names = db.datasets.distinct("data_name")
-
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Instructions Page",
