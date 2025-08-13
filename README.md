@@ -9,7 +9,7 @@ Requirements (install using either pip or conda):
 - libmagic   
 - openpyxl
 - ipython
-- sklearn
+- scikit-learn=1.3.2 
 - seqeval
 - autoGulon
 - incremental
@@ -19,7 +19,7 @@ Requirements (install using either pip or conda):
 - matplotlib
 - joblib
 - shap
-- imbalanced-learn
+- imbalanced-learn=0.12.4
 - catboost
 - streamlit_cookies_manager
 - magic
