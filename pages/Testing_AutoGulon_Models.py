@@ -184,8 +184,8 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                     evaluation['AUROC Score (Train)'] = res_train['auc']
                     evaluation['AUROC CI Low (Train)'] = res_train['auc_cilow']
                     evaluation['AUROC CI High (Train)'] = res_train['auc_cihigh']
-                    evaluation['P (Train)'] = res_train['P']
-                    evaluation['N (Train)'] = res_train['N']
+                    evaluation['P (Train)'] = res_train['P'].astype(float)
+                    evaluation['N (Train)'] = res_train['N'].astype(float)
                     
                 # create a states able for metric on the test set
                 res, res_array = full_roc_curve(y_test.to_numpy(), y_proba[1].to_numpy(), index=cutoff_index)
@@ -216,8 +216,8 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                 evaluation['TN'] = res['TN']
                 evaluation['FN'] = res['FN']
                     
-                evaluation['P'] = res['P']
-                evaluation['N'] = res['N']
+                evaluation['P'] = res['P'].astype(float)
+                evaluation['N'] = res['N'].astype(float)
                     
                 evaluation['precision'] = res['precision']
                 evaluation['recall'] = res['recall']
@@ -675,6 +675,7 @@ if input_variables is not None and model_path is not None and (uploaded_test_set
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             # get test dataset name
             test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+            st.write(results_dictonary)
             result = {
                 "exp_name": exp_name,
                 "type": model_type,
