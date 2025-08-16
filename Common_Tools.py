@@ -137,7 +137,6 @@ options_default = { # test set options dict
         "n_repeats": 1,
         "min_postives": 10,
         "test_size": 0.2,
-        'cutoff_index': 'youden'
     }
 
 def sanitize_filename(filename):
@@ -1510,12 +1509,10 @@ def get_avg_results_dic(results_dictonary):
     return results_dictonary_avg
 
 # create the configuration file
-def generate_configuration_file(num_exp, project_name, train_set, test_sets, exp_names, algorithms, exp_type, options, param_vals):
+def generate_configuration_file(num_exp, project_name, exp_names, algorithms, threshold_type, options, param_vals):
     configuration_dic = {}
     configuration_dic[project_name] = {}
-    #configuration_dic[project_name]['train_set']  = train_set
-    #configuration_dic[project_name]['test_sets']  = test_sets
-    configuration_dic[project_name]['exp_type']  = exp_type
+    configuration_dic[project_name]['threshold_type']  = threshold_type
     
     for i in range(num_exp):
         #st.write(i)
@@ -1533,20 +1530,17 @@ def generate_configuration_file(num_exp, project_name, train_set, test_sets, exp
     
 
 # generate configuration template
-def generate_configuration_template(project_name, num_exp, training_method):
+def generate_configuration_template(project_name, num_exp):
     #st.write("Number of exp. :", num_exp)
     exp_names=["exp_" + str(i) for i in range(num_exp)]
     algorithms=["enter_algo_here"]*num_exp
-    train_set="enter_filename_here"
-    options=[options_test_set]*num_exp if training_method=="Dedicated Test Set" else [options_default]*num_exp
+    options=[options_default]*num_exp
     
     configuration_dic = generate_configuration_file(num_exp=num_exp, 
                             project_name=project_name, 
-                            train_set=train_set,
-                            test_sets=["None"],
                             exp_names=exp_names,
                             algorithms=algorithms, 
-                            exp_type="enter_type_here", 
+                            threshold_type="enter_type_here", 
                             #training_type=["enter_type_here"] * num_exp,
                             options=options,
                             param_vals=["None"]*num_exp)
@@ -1555,12 +1549,12 @@ def generate_configuration_template(project_name, num_exp, training_method):
 
     return configuration_dic
 
-def generate_congfig_file(exp_name, algorithims, exp_type, options):
+def generate_congfig_file(exp_name, algorithims, threshold_type, options):
     print("Number of exp. :", len(algorithims))
 
     configuration_dic = {}
     configuration_dic[exp_name] = {}
-    configuration_dic[exp_name]['exp_type']  = exp_type
+    configuration_dic[exp_name]['threshold_type']  = threshold_type
 
     for algorithim in algorithims:
         experiment = {}

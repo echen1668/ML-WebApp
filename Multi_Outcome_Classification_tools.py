@@ -6,7 +6,7 @@ import sklearn as scikit_learn
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import metrics
-#from scipy import interp
+from scipy import interp
 from scipy.stats import norm
 import openpyxl 
 from openpyxl import load_workbook
@@ -54,7 +54,7 @@ from sklearn.metrics import classification_report
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix
-#from scipy import interp
+from scipy import interp
 from scipy.stats import norm
 import openpyxl 
 from openpyxl import load_workbook
@@ -1819,7 +1819,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
 
 
         
-def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals_raw, experiment_name, project_folder, project_name, data_name):
+def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_cols, numeric_cols, categorical_cols, threshold_type, options, algorithm, param_vals_raw, experiment_name, project_folder, project_name, data_name):
     
     outcome_stats = {}
     algo_dictonary = {}
@@ -2044,17 +2044,9 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         # save the results in folders
         algorithm_folder = os.path.join("Results", project_name, data_name, f'{algorithm} (results)', label_col)
         os.makedirs(algorithm_folder, exist_ok=True)
-
-        # testing on the test set
-        #probas_test = model.predict_proba(X_test[selected_features]) # get probablities with test set
-        #model.predict(X_test[features]) # predict with test set
-            
-        # create a states able for metric on the test set
-        #res_test, res_array_test = full_roc_curve(y_test, probas_test[:, 1], index=options['cutoff_index'])
-        #print("Results Array (Test Set): ", res_test)
         
         # test the model
-        metric_dic_test, image_data = test_and_save_results(estimator, X_test[selected_features], y_test, options, algorithm_folder, algorithm, label_col, df_res_train=res)
+        metric_dic_test, image_data = test_and_save_results(estimator, X_test[selected_features], y_test, threshold_type, algorithm_folder, algorithm, label_col, df_res_train=res)
         
         algo_dictonary[label_col]['evaluation'] = metric_dic_test
         algo_dictonary[label_col]['shap values'] = image_data
@@ -2084,7 +2076,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
     return algo_dictonary
 
 
-def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals_raw, experiment_name, project_folder, project_name):
+def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols, threshold_type, options, algorithm, param_vals_raw, experiment_name, project_folder, project_name):
     algo_dictonary = {}
     
     total_time = 0
@@ -2232,8 +2224,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             probas_test = estimator.predict_proba(X_test_fold) # get probablities with test set
 
 
-            metric_dic_train, _ = test_and_save_results(estimator, X_train_fold, y_train_fold, options, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
-            metric_dic_test, _ = test_and_save_results(estimator, X_test_fold, y_test_fold, options, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
+            metric_dic_train, _ = test_and_save_results(estimator, X_train_fold, y_train_fold, threshold_type, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
+            metric_dic_test, _ = test_and_save_results(estimator, X_test_fold, y_test_fold, threshold_type, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
 
             predictions_train = [1 if p >= metric_dic_train['cutoff'] else 0 for p in probas_train[:, 1]] # predict with train set
             predictions_test = [1 if p >= metric_dic_test['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
@@ -2361,7 +2353,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
     return algo_dictonary
 
 
-def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo_name, outcome_name, df_res_train=None, roc=True, is_shap=True):
+def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folder, algo_name, outcome_name, df_res_train=None, roc=True, is_shap=True):
 
     metric_dic = {} # dictionary containg all important metrics
 
@@ -2370,7 +2362,7 @@ def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo
     #model.predict(X_test[features]) # predict with test set
             
     # create a states able for metric on the test set
-    res_test, res_array_test = full_roc_curve(y_test, probas_test[:, 1], index=options['cutoff_index'])
+    res_test, res_array_test = full_roc_curve(y_test, probas_test[:, 1], index=threshold_type)
     print("Results Array (Test Set): ", res_test)
 
     metric_dic['TPR'] = res_test['tpr']
@@ -2383,8 +2375,8 @@ def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo
     metric_dic['AUROC Score'] = res_test['auc']
     metric_dic['AUROC CI Low'] = res_test['auc_cilow']
     metric_dic['AUROC CI High'] = res_test['auc_cihigh']
-    metric_dic['cutoff type'] = options['cutoff_index']
-    metric_dic['cutoff'] = (res_test['cutoff_mcc'] if options['cutoff_index']=='mcc' else (res_test['cutoff_ji'] if options['cutoff_index']=='ji' else (res_test['cutoff_f1'] if options['cutoff_index']=='f1' else res_test['cutoff_youden']))).astype(float)
+    metric_dic['cutoff type'] = threshold_type # options['cutoff_index']
+    metric_dic['cutoff'] = (res_test['cutoff_mcc'] if threshold_type=='mcc' else (res_test['cutoff_ji'] if threshold_type=='ji' else (res_test['cutoff_f1'] if threshold_type=='f1' else res_test['cutoff_youden']))).astype(float)
             
     print("Cutoff Index: ", metric_dic['cutoff'])
 
@@ -2454,7 +2446,7 @@ def test_and_save_results(model, X_test, y_test, options, algorithm_folder, algo
         plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
         explainer = shap.Explainer(model.predict, X_test)
         #shap_values = explainer.shap_values(X_test)
-        shap_values = explainer(X_test, max_evals=2**X_test.shape[1])
+        shap_values = explainer(X_test, max_evals=(2 * (X_test.shape[1] + 1)))
                 
         try:
             shap.summary_plot(shap_values, X_test, plot_type='dot', max_display = 10, show=False) 
