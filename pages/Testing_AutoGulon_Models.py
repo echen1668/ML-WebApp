@@ -675,11 +675,12 @@ if input_variables is not None and model_path is not None and (uploaded_test_set
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             # get test dataset name
             test_name = uploaded_test_set.name if data_name_test == None else data_name_test
-            st.write(results_dictonary)
+            #st.write(results_dictonary)
             result = {
                 "exp_name": exp_name,
                 "type": model_type,
                 "test set": test_set_name,
+                "threshold used": threshold_type,
                 "results_dic": results_dictonary,
                 "results_table": results_dic,
                 'dataset used': test_name,

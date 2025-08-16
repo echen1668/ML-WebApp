@@ -104,7 +104,7 @@ def find_option_dic(configuration, project_name, algorithm):
     main_dic = configuration[project_name]
     #st.write(main_dic)
     for _, (key, values) in enumerate(main_dic.items()):
-        if key == "exp_type":
+        if key == "exp_type" or key == "threshold_type":
             continue
         
         if main_dic[key]["algorithm"] == algorithm:
@@ -719,6 +719,7 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
                         "exp_name": exp_name,
                         "type": model_type,
                         "test set": test_set_name,
+                        "threshold used": threshold_type,
                         "results_dic": results_dictonary,
                         "results_table": results_dic,
                         'dataset used': test_name,

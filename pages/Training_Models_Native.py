@@ -246,14 +246,14 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         input_cols, label_cols, categorical_cols, numeric_cols = parse_exp_multi_outcomes(train_set["Data"], index_set["Data"], unique_value_threshold=unique_value_threshold)
         st.write("Label Columns: ", label_cols)
 
-        problem_type = configuration_dic[project_name]['exp_type']
+        threshold_type = configuration_dic[project_name]['threshold_type']
         df_train = refine_binary_outcomes(train_set["Data"], label_cols)
 
     algorithms = [] # list of algorithims
     results_dictonary = {}
     for experiment in configuration_dic[project_name]:
         experiment_name = experiment
-        if experiment_name in ["train_set", "test_sets", "exp_type"]:
+        if experiment_name in ["train_set", "test_sets", "threshold_type", "exp_type"]:
             continue
 
         # --- 2. Prep the data ---
@@ -265,33 +265,6 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
             algorithms.append(algorithm)
             results_dictonary[algorithm] = {}
-
-            # refine all the test sets and save them
-            #for _, (testing_set_name, testing_set) in enumerate(data_sets['Testing Set'].items()):
-                
-                #if testing_set_name not in data_names_list_test:
-                    # get the current time
-                    #current_datetime = datetime.now()
-                    #current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-                    ## save test set in data folder and database
-                    #os.makedirs("Data Sets", exist_ok=True)
-                    #save_data(testing_set_name, testing_set, os.path.join("Data Sets", testing_set_name))
-                    #dataset_test = {
-                    #        "data_name": testing_set_name,
-                    #        "type": "Test",
-                    #        "time_saved": current_time,
-                    #        "data_path": os.path.join("Data Sets", testing_set_name)
-                    #}
-                    #datasets.insert_one(dataset_test)
-                #else:
-                    #st.info(f"Testing Dataset {testing_set_name} of the same name is already in the database", icon="ℹ️")
-
-                # prep testing sets
-                #_, df_test, _, _ = data_prep_train_set(df_train, testing_set, input_cols, label_cols, numeric_cols, categorical_cols, options)
-
-                # save test set refined
-                #file_name = "refined_" + testing_set_name
-                #df_test.to_csv(os.path.join(project_folder, experiment_name, file_name))
 
             # refine the training set before model training
             df_train_refined, input_cols, label_cols, encoder, encoded_cols, qt = data_prep(df_train, input_cols, label_cols, numeric_cols, categorical_cols, options)
@@ -317,11 +290,11 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 multi_outcome_hyperparameter_binary(df_train_refined, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals, experiment_name, project_folder)
                 
             elif st.session_state.training_method == "Train/Test Split":
-                algo_dictonary = multi_outcome_hyperparameter_binary_train_and_test(df_train_refined, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals, experiment_name, project_folder, project_name, data_name)
+                algo_dictonary = multi_outcome_hyperparameter_binary_train_and_test(df_train_refined, input_cols, label_cols, numeric_cols, categorical_cols, threshold_type, options, algorithm, param_vals, experiment_name, project_folder, project_name, data_name)
                 results_dictonary[algorithm] = algo_dictonary
             
             elif st.session_state.training_method == "Cross-Validation":
-                algo_dictonary = multi_outcome_cv(df_train_refined, input_cols, label_cols, numeric_cols, categorical_cols, options, algorithm, param_vals, experiment_name, project_folder, project_name)
+                algo_dictonary = multi_outcome_cv(df_train_refined, input_cols, label_cols, numeric_cols, categorical_cols, threshold_type, options, algorithm, param_vals, experiment_name, project_folder, project_name)
                 results_dictonary[algorithm] = algo_dictonary
 
         st.success(f"Successfully completed training for **{experiment_name}**.")
@@ -394,6 +367,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 "exp_name": project_name,
                 "type": training_type,
                 "test set": data_name,
+                "threshold used": threshold_type,
                 "results_dic": final_results_dic,
                 "results_table": results_dic,
                 'dataset used': train_set['Name'],
@@ -756,10 +730,9 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         "n_repeats": n_repeats,
         "min_postives": min_postives,
         "test_size": test_size,
-        'cutoff_index': threshold_type
     }
 
-    configuration_dic = generate_congfig_file(project_name, algorithms, "binary", options)    
+    configuration_dic = generate_congfig_file(project_name, algorithms, threshold_type, options)    
 
 elif configure_options == "Upload a file":
     unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a input variable to be consired catagorical:", min_value=1, max_value=100, value=10)
@@ -770,7 +743,7 @@ elif configure_options == "Upload a file":
     # sends user to a seperate page where they can download an empty configuration file where they can customize themselves
     st.download_button(
         label="Download Configuration File Template ⬇️",
-        data=json.dumps(generate_configuration_template(project_name, num_models, st.session_state.training_method), indent=4),
+        data=json.dumps(generate_configuration_template(project_name, num_models), indent=4),
         file_name=f"{project_name}.json",
         mime="application/json"
     )

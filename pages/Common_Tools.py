@@ -137,7 +137,6 @@ options_default = { # test set options dict
         "n_repeats": 1,
         "min_postives": 10,
         "test_size": 0.2,
-        'cutoff_index': 'youden'
     }
 
 def sanitize_filename(filename):
@@ -471,6 +470,9 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         encoded_cols = list(encoder.get_feature_names_out(categorical_cols))
         df[encoded_cols] = encoder.transform(df[categorical_cols])
         input_cols = numeric_cols + encoded_cols
+    else:
+        encoder = None
+        encoded_cols = None
     
     '''
     if Impute == True:
@@ -549,6 +551,8 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         from sklearn.preprocessing import QuantileTransformer
         qt = QuantileTransformer(output_distribution='normal').fit(df[numeric_cols])
         df[numeric_cols] = qt.transform(df[numeric_cols])
+    else:
+        qt = None
     '''   
     if Normalize == 'True':  
         print("Normalize")
@@ -558,7 +562,7 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         df[numeric_cols] = normalizer.transform(df[numeric_cols])
     '''    
     
-    return df, input_cols
+    return df, input_cols, encoder, encoded_cols, qt
 
 
 # Version of of the preprocess function that's used for senarios of seperate train and test sets
@@ -870,12 +874,12 @@ def open_configuration_file(filename):
 
 def data_prep(df, input_cols, label_cols, numeric_cols, categorical_cols, options):
     #Preprocess data
-    df_new, input_cols = preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, oneHotEncode=options['oneHotEncode'],
+    df_new, input_cols, encoder, encoded_cols, qt = preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, oneHotEncode=options['oneHotEncode'],
                     cutMissingRows=options['cutMissingRows'], threshold=options['cut threshold'], inf=options['inf'],
                     outliers=options['outliers'], N=options['outliers_N'],
                         QuantileTransformer=options['QuantileTransformer'])
 
-    return df_new, input_cols, label_cols
+    return df_new, input_cols, label_cols, encoder, encoded_cols, qt
 
 # Version of of the data_prep function that's used for senarios of seperate train and test sets
 def data_prep_train_set(df, def_test, input_cols, label_cols, numeric_cols, categorical_cols, options):
@@ -1169,7 +1173,7 @@ def generate_all_idx_files(all_experiments, project_name):
 
 def setup_multioutcome_binary(set_up, experiment_name, project_folder):
     algorithm = set_up['algorithm']
-    st.write(algorithm)
+    #st.write(algorithm)
     
     options = set_up['options']
     
@@ -1247,6 +1251,35 @@ def generate_joblib_model(directory_path):
                     except:
                         print("      No input columns available, skipping")
 
+                    # get the encoder
+                    try:
+                        encoder_name = os.path.join(directory_path, item_name, algorithm + "_encoder.joblib")
+                        print("      ",encoder_name)
+                        encoder = joblib.load(encoder_name)
+                        #st.write(encoder)
+                        #model_dic[algorithm]['Encoder'] = encoder
+
+                        encoded_cols_name = os.path.join(directory_path, item_name, algorithm + "_encoded_cols.joblib")
+                        print("      ",encoded_cols_name)
+                        encoded_cols = joblib.load(encoded_cols_name)
+                        #st.write(encoded_cols)
+                        #model_dic[algorithm]['Encoded Columns'] = encoded_cols
+                    except:
+                        print("      No Encoder available, skipping")
+                        encoder = None
+                        encoded_cols = None
+
+                    # get the Quantile Transformer
+                    try:
+                        qt_name = os.path.join(directory_path, item_name, algorithm + "_qt.joblib")
+                        print("      ",qt_name)
+                        qt = joblib.load(qt_name)
+                        #st.write(qt)
+                        #model_dic[algorithm]['Quantile Transformer'] = qt
+                    except:
+                        print("      No Quantile Transformer available, skipping")
+                        qt = None
+
                     # Get the list of contents in the algorithm directory
                     algorithm_contents = os.listdir(content_path)
                     print("      Algorithm Contents:")
@@ -1256,22 +1289,6 @@ def generate_joblib_model(directory_path):
                         
                         print("           Outcome Contents:")
                         
-                        '''
-                        # Get the list of contents in the outcome directory
-                        try:
-                            outcome_contents = os.listdir(os.path.join(content_path, outcome))
-                            print("           Outcome Contents:")
-                            model_name = algorithm + '_' + outcome + '_model.joblib'
-                            print("          ",model_name)
-                            loaded_model = joblib.load(os.path.join(content_path, outcome, model_name))
-                            print("          ",loaded_model)
-                        except:
-                            model_name = algorithm + '_' + outcome + '_model.joblib'
-                            print("          ",model_name)
-                            with open(os.path.join(content_path, outcome, model_name), "rb") as f:
-                                loaded_model = pickle.load(f)
-                            print("          ",loaded_model) 
-                        '''
                         
                         # get everything else needed
                         outcome_contents = os.listdir(os.path.join(content_path, outcome))
@@ -1333,6 +1350,14 @@ def generate_joblib_model(directory_path):
                         except:
                             print("          No Normalizer")
 
+
+                        # store the encoder and qt if they exist for each algo
+                        if encoder != None:
+                            model_dic[algorithm][outcome]['Encoder'] = encoder
+                            model_dic[algorithm][outcome]['Encoded Columns'] = encoded_cols
+                        if qt != None:
+                            model_dic[algorithm][outcome]['Quantile Transformer'] = qt
+
                         res_train_name = algorithm + '_' + outcome + '_res_table.joblib'
                         #print(res_train_name)
                         df_res_train = joblib.load(os.path.join(content_path, outcome, res_train_name))
@@ -1353,7 +1378,7 @@ def generate_joblib_model(directory_path):
 def generate_results_table(results_dictonary):
     # Initialize an empty list to collect rows
     rows = []
-    no_results = []
+    #no_results = []
     
     for _, (algo, outcomes) in enumerate(results_dictonary.items()):
 
@@ -1396,11 +1421,11 @@ def generate_results_table(results_dictonary):
             rows.append(new_row)
 
     # Specifying the list of outcomes with no results for demonstration purposes
-    print(f'Outcomes with no results are {no_results}')
+    #print(f'Outcomes with no results are {no_results}')
 
     # Writing the output to a text file
-    with open("outcomes_no_results.txt", "w") as file:
-        file.write(f"Outcomes with no results are {no_results}")
+    #with open("outcomes_no_results.txt", "w") as file:
+        #file.write(f"Outcomes with no results are {no_results}")
 
     # Convert the list of rows into a DataFrame
     results_df = pd.DataFrame(rows)
@@ -1484,12 +1509,10 @@ def get_avg_results_dic(results_dictonary):
     return results_dictonary_avg
 
 # create the configuration file
-def generate_configuration_file(num_exp, project_name, train_set, test_sets, exp_names, algorithms, exp_type, options, param_vals):
+def generate_configuration_file(num_exp, project_name, exp_names, algorithms, threshold_type, options, param_vals):
     configuration_dic = {}
     configuration_dic[project_name] = {}
-    #configuration_dic[project_name]['train_set']  = train_set
-    #configuration_dic[project_name]['test_sets']  = test_sets
-    configuration_dic[project_name]['exp_type']  = exp_type
+    configuration_dic[project_name]['threshold_type']  = threshold_type
     
     for i in range(num_exp):
         #st.write(i)
@@ -1507,20 +1530,17 @@ def generate_configuration_file(num_exp, project_name, train_set, test_sets, exp
     
 
 # generate configuration template
-def generate_configuration_template(project_name, num_exp, training_method):
+def generate_configuration_template(project_name, num_exp):
     #st.write("Number of exp. :", num_exp)
     exp_names=["exp_" + str(i) for i in range(num_exp)]
     algorithms=["enter_algo_here"]*num_exp
-    train_set="enter_filename_here"
-    options=[options_test_set]*num_exp if training_method=="Dedicated Test Set" else [options_default]*num_exp
+    options=[options_default]*num_exp
     
     configuration_dic = generate_configuration_file(num_exp=num_exp, 
                             project_name=project_name, 
-                            train_set=train_set,
-                            test_sets=["None"],
                             exp_names=exp_names,
                             algorithms=algorithms, 
-                            exp_type="enter_type_here", 
+                            threshold_type="enter_type_here", 
                             #training_type=["enter_type_here"] * num_exp,
                             options=options,
                             param_vals=["None"]*num_exp)
@@ -1529,12 +1549,12 @@ def generate_configuration_template(project_name, num_exp, training_method):
 
     return configuration_dic
 
-def generate_congfig_file(exp_name, algorithims, exp_type, options):
+def generate_congfig_file(exp_name, algorithims, threshold_type, options):
     print("Number of exp. :", len(algorithims))
 
     configuration_dic = {}
     configuration_dic[exp_name] = {}
-    configuration_dic[exp_name]['exp_type']  = exp_type
+    configuration_dic[exp_name]['threshold_type']  = threshold_type
 
     for algorithim in algorithims:
         experiment = {}

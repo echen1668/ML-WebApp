@@ -798,7 +798,7 @@ if configuration_dic != None and st.button("Start Training", type="primary", use
     # Call the main orchestration function
     models_dictonary = train_and_generate_models(data_sets, project_name, configuration_dic, unique_value_threshold=unique_value_threshold)
 
-    st.write(models_dictonary)
+    #st.write(models_dictonary)
 
     st.subheader("Jump to Testing the Models") # redirect to the testing section
     st.page_link("pages/Testing_AutoGulon_Models.py", label="Test Models", icon="🧪")

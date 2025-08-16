@@ -306,6 +306,12 @@ results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 model_type = results_dict['type'] if results_dict is not None else None
 time_created = results_dict['time_created'] if results_dict is not None else None
 
+# get the threshold/cutoff used if available
+try:
+    threshold_used = results_dict['threshold used'] if results_dict is not None else None
+except:
+    threshold_used = 'N/A'
+
 # get the name of the data set used
 try:
     test_set_name = results_dict['dataset used'] if results_dict is not None else None
@@ -320,6 +326,7 @@ with st.expander("▶️ ML Test Result Info"):
     st.markdown('##### **Test:**')
     st.markdown(f'##### <u>{test_set}</u>', unsafe_allow_html=True)
     st.write(f'**Model Type:** {model_type}')
+    st.write(f'**Threshold Used:** {threshold_used}')
     st.write(f'**Test Data Used:** {test_set_name}')
     st.write(f'**Time Created:** {time_created}')
 
