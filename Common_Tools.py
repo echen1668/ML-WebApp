@@ -712,7 +712,7 @@ def rebalance(input_df, label_df, type='RandomUnderSampler', sampling_strategy='
         print("Cannot do")
         input_df2, label_df2 = input_df, label_df
         
-    st.write(rebalance)
+    #st.write(rebalance)
     return input_df2, label_df2 
 
 
@@ -1589,4 +1589,5 @@ def generate_congfig_file(exp_name, algorithims, threshold_type, options):
     
     #st.write("Configuration_dic : ", configuration_dic)
     
+
     return configuration_dic
