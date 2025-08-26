@@ -363,19 +363,33 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
             current_datetime = datetime.now()
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-            result = {
-                "exp_name": project_name,
-                "type": training_type,
-                "test set": data_name,
-                "threshold used": threshold_type,
-                "results_dic": final_results_dic,
-                "results_table": results_dic,
-                'dataset used': train_set['Name'],
-                "time_created": current_time
-            }
-            # 'threshold used': ,
+            try:
+                result = {
+                    "exp_name": project_name,
+                    "type": training_type,
+                    "test set": data_name,
+                    "threshold used": threshold_type,
+                    "results_dic": final_results_dic,
+                    "results_table": results_dic,
+                    'dataset used': train_set['Name'],
+                    "time_created": current_time
+                }
 
-            results.insert_one(result) # insert one dictonary
+                results.insert_one(result) # insert one dictonary
+            except:
+                st.info("Results size is too large. Will save filepaths instead.")
+
+                result = {
+                    "exp_name": project_name,
+                    "type": training_type,
+                    "test set": data_name,
+                    "threshold used": threshold_type,
+                    "results_dic": path_name,
+                    "results_table": results_dic,
+                    'dataset used': train_set['Name'],
+                    "time_created": current_time
+                }
+                results.insert_one(result) # insert one dictonary
     
     st.success(f"✅ Experiment '{project_name}' completed successfully!")
     
@@ -682,12 +696,27 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         rebalance = st.radio("Rebalance the Training Data?", ("True", "False"), index=1, horizontal=True)
         if rebalance == 'True':
             rebalance_type = st.selectbox("Rebalancing Method", ['RandomUnderSampler', 'RandomOverSampler', 'SMOTE', 'ADASYN'])
+            sampling_strategy = st.selectbox("Sampling Strategy", ['auto', 'majority', 'not minority', 'not majority', 'all', 'ratio'])
+
+            if sampling_strategy == "ratio":
+                sampling_ratio = st.number_input("Ratio of # of samples in the minority class over # of samples in the majority class (should be calcauted as: n minority sample/N majority sample. Ex: have majority to outnumer minority 5 to 1 should calucate 0.20):", min_value=0.0, value=0.2, help="(should be calcauted as: n minority sample/N majority sample. Ex: have majority to outnumer minority 5 to 1 should calucate 1/5)")
+            else:
+                sampling_ratio = 0.0
+
+            if rebalance_type in ['ADASYN', 'SMOTE']:
+                k_neighbors = st.number_input("Number of Nearest Neighbors", min_value=1, value=5, help="The nearest neighbors used to define the neighborhood of samples to use to generate the synthetic samples.")
+            else:
+                k_neighbors = 5
         else:
             rebalance_type = "None"
+            sampling_strategy = "None"
+            sampling_ratio = 0.0
+            k_neighbors = 5
+
 
         featureSelection = st.radio("Perform Feature Selection?", ("True", "False"), index=1, horizontal=True)
         if featureSelection == 'True':
-            featureSelection_method = st.selectbox("Feature Selection Method", ['MRMR', 'SelectKBest-f_classif', 'SelectKBest-chi2'])
+            featureSelection_method = st.selectbox("Feature Selection Method", ['MRMR', 'RFECV', 'SelectKBest-f_classif', 'SelectKBest-chi2'])
             N_features = st.number_input("Number of Features to Select", min_value=1, value=20)
         else:
             featureSelection_method = "None"
@@ -721,6 +750,9 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         'Normalize': normalize,
         'rebalance' : rebalance,
         'rebalance_type': rebalance_type,
+        'sampling_strategy': sampling_strategy,
+        'sampling_ratio': sampling_ratio,
+        'k_neighbors': k_neighbors,
         'FeatureSelection': featureSelection,
         "method": featureSelection_method,
         'N_features': N_features, 

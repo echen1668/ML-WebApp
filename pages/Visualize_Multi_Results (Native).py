@@ -338,7 +338,12 @@ if "df_total" not in st.session_state:
 
 if results_dict is not None and st.button('➕ Add Results', help="Add the result to the collective table."):
     # Get the outcome_dic for each outcome
-    outcome_dic = results_dict['results_dic'] if results_dict is not None else None
+    if isinstance(results_dict['results_dic'], str):
+        print("The variable is a string.")
+        outcome_dic = joblib.load(results_dict['results_dic']) # upload the results dictonary from file system if value is a path name
+    else:
+        print("The variable is not a string.")
+        outcome_dic = results_dict['results_dic'] if results_dict is not None else None # upload the results dictonary directly from database
 
     # check if results_dict is Native
     if outcome_dic is not None and results_dict['type'] != 'Native':

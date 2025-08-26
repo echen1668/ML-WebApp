@@ -715,20 +715,33 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
                     current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
                     # get test dataset name
                     test_name = uploaded_test_set.name if data_name_test == None else data_name_test
-                    result = {
-                        "exp_name": exp_name,
-                        "type": model_type,
-                        "test set": test_set_name,
-                        "threshold used": threshold_type,
-                        "results_dic": results_dictonary,
-                        "results_table": results_dic,
-                        'dataset used': test_name,
-                        "time_created": current_time
-                    }
+                    try:
+                        result = {
+                            "exp_name": exp_name,
+                            "type": model_type,
+                            "test set": test_set_name,
+                            "threshold used": threshold_type,
+                            "results_dic": results_dictonary,
+                            "results_table": results_dic,
+                            'dataset used': test_name,
+                            "time_created": current_time
+                        }
 
-                    results.insert_one(result) # insert one dictonary
-                    #except:
-                        #st.write("Error has occured in testing. Check if feature set in data contains the required input variables from the model.")
+                        results.insert_one(result) # insert one dictonary
+                    except:
+                        st.info("Results size is too large. Will save filepaths instead.")
+
+                        result = {
+                            "exp_name": exp_name,
+                            "type": model_type,
+                            "test set": test_set_name,
+                            "threshold used": threshold_type,
+                            "results_dic": path_name,
+                            "results_table": results_dic,
+                            'dataset used': test_name,
+                            "time_created": current_time
+                        }
+                        results.insert_one(result) # insert one dictonary
 
                 st.success(f"✅ Testing '{exp_name}' completed successfully!")
                 st.subheader("Jump to Visualizing Results") # redirect to the testing section

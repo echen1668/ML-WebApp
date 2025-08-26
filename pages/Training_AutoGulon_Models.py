@@ -346,6 +346,8 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
 
         #st.write(label_cols)
 
+    # --- 2. Training Models ---
+    with st.spinner("Training the Models..."):
         for outcome in label_cols:
             with st.spinner(f'Working with outcome: {outcome}'):
                 if outcome not in df_train.columns:
@@ -416,7 +418,7 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
     pathway_name = f"{project_folder}/{project_name}_models.joblib"
     joblib.dump(models_dictonary, pathway_name)
 
-    # Finalize Experiment
+    # --- 3. Finalize Experiment
     st.write("---")
     with st.spinner("Finalizing experiment: saving metadata and final reports..."):
         
@@ -785,7 +787,7 @@ elif configure_options == "Upload a file":
         custom_hyperparameters = configuration_dic['custom_hyperparameters']
         if custom_hyperparameters != None:
             configuration_dic['custom_hyperparameters'] = convert_from_json_compatible(configuration_dic['custom_hyperparameters'])
-        st.write(configuration_dic)
+        #st.write(configuration_dic)
 
 else:
     configuration_dic = None
