@@ -21,6 +21,7 @@ from sklearn.feature_selection import f_classif
 from sklearn.feature_selection import chi2
 from sklearn.feature_selection import SelectPercentile
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.feature_selection import RFECV
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 from sklearn.calibration import CalibratedClassifierCV
@@ -104,6 +105,9 @@ options_test_set = { # default options dict
         'Normalize': "True",
         'rebalance' : "True",
         'rebalance_type': "SMOTE",
+        'sampling_strategy': 'auto',
+        'sampling_ratio': 0.0,
+        'k_neighbors': 5,
         'FeatureSelection': "True",
         "method": 'SelectKBest-f_classif',
         'N_features': 40, 
@@ -128,6 +132,9 @@ options_default = { # test set options dict
         'Normalize': "True",
         'rebalance' : "True",
         'rebalance_type': "SMOTE",
+        'sampling_strategy': 'auto',
+        'sampling_ratio': 0.0,
+        'k_neighbors': 5,
         'FeatureSelection': "True",
         "method": 'SelectKBest-f_classif',
         'N_features': 40, 
@@ -672,37 +679,53 @@ def scaling(df, input_cols, label_cols, numeric_cols, categorical_cols, scalingM
         return df, scaler
 
 #rebalance the imbalanced data with a chosen label
-def rebalance(input_df, label_df, type='RandomUnderSampler'):
+def rebalance(input_df, label_df, type='RandomUnderSampler', sampling_strategy='auto', sampling_ratio=0.2, k_neighbors=5):
     if type == 'RandomUnderSampler':
         # random undersampling reduces the number of majority class randomly down to the desired ratio against the minority class.
         from imblearn.under_sampling import RandomUnderSampler
-        rebalance = RandomUnderSampler()
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = RandomUnderSampler(sampling_strategy=sampling_ratio)
+        else:
+            rebalance = RandomUnderSampler(sampling_strategy=sampling_strategy)
+
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)
     elif type == 'RandomOverSampler':
         # Naive random over-sampling.
         from imblearn.over_sampling import RandomOverSampler
-        rebalance = RandomOverSampler()
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = RandomOverSampler(sampling_strategy=sampling_ratio)
+        else:
+            rebalance = RandomOverSampler(sampling_strategy=sampling_strategy)
+
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)
     elif type == 'SMOTE':
         # SMOTE is a technique to up-sample the minority classes while avoiding overfitting.
         from imblearn.over_sampling import SMOTE
-        rebalance = SMOTE()
+        rebalance = SMOTE(sampling_strategy=sampling_strategy, k_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)    
     elif type == 'ADASYN':
         # Adaptive Synthetic (ADASYN) algorithm. This method is similar to SMOTE but it generates different number of samples depending on an estimate of the local distribution of the class to be oversampled.
         from imblearn.over_sampling import ADASYN
-        rebalance = ADASYN()
+        rebalance = ADASYN(sampling_strategy=sampling_strategy, n_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)                   
     else:
         print("Cannot do")
         input_df2, label_df2 = input_df, label_df
         
-    return input_df2, label_df2  
+    st.write(rebalance)
+    return input_df2, label_df2 
 
 
-def feature_selection(input_df, output_df, method="MRMR", type='f_classif', N=20, per=10):
+def feature_selection(input_df, output_df, method="MRMR", type='f_classif', N=20, per=10, cv=10, estimator=None):
+    print("FeatureSelection")
     if method=="MRMR":
         selected_features = mrmr_classif(X=input_df, y=output_df, K=N)
+        input_df_new = input_df[selected_features]
+    elif method=="RFECV":
+        selector = RFECV(estimator, step=1, cv=cv, min_features_to_select=N)
+        selector = selector.fit(input_df, output_df)
+        selected_features = input_df.columns[selector.support_]
+        st.write(selected_features)
         input_df_new = input_df[selected_features]
     elif method=="SelectKBest":
         if type=='f_classif':
