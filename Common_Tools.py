@@ -344,9 +344,10 @@ def parse_exp_multi_outcomes(df, df_index, unique_value_threshold=10): # Define 
 
     # Select columns of object data type (categorical columns)
     categorical_cols = input_df.select_dtypes('object').columns.tolist()
-
+    
     # Identify discrete numeric columns as categorical if they have fewer unique values than the threshold
     discrete_numeric_cols = [col for col in input_df.select_dtypes(include=np.number).columns if len(input_df[col].unique()) < unique_value_threshold]
+    
     categorical_cols.extend(discrete_numeric_cols)
 
     # Exclude the identified discrete numeric columns from numeric_cols
@@ -1589,5 +1590,4 @@ def generate_congfig_file(exp_name, algorithims, threshold_type, options):
     
     #st.write("Configuration_dic : ", configuration_dic)
     
-
     return configuration_dic

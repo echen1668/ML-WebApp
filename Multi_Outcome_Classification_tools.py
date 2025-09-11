@@ -1628,7 +1628,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         f.write("_____________________________________________________________________________________________________")
         f.write("\nAlgorithm: %s"% algorithm)
         f.write("\nLabel: %s"% label_col)
-        f.write("\Data Size : %s"% len(X_train))
+        f.write("\nData Size : %s"% len(X_train))
         if (y_train == 1).sum() < 10:
             print("Too little postive outcomes to predict (after removing early cases)")
             f.write("\nToo little postive outcomes to predict (after removing early cases)")
@@ -1650,6 +1650,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         if options['Impute'] == "True":
             #st.write("Impute")
             imputer = SimpleImputer(strategy = 'mean')
+            f.write("\nImputer: %s"% imputer)
             imputer.fit(X_train)
             X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
             y_train.reset_index(drop=True, inplace=True)
@@ -1660,6 +1661,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         if options['Scaling'] == "True" and len(numeric_cols) > 0:
             #st.write("Scaling")
             X_train, scaler = Common_Tools.scaling(X_train, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
+            f.write("\nScaler: %s"% scaler)
             y_train.reset_index(drop=True, inplace=True)
             scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
             joblib.dump(scaler, scale_name)
@@ -1667,9 +1669,10 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
     
         if options['Normalize'] == 'True':  
             print("Normalize")
-            # Normalize the data
+            # Normalize the data 
             from sklearn.preprocessing import Normalizer
             normalizer = Normalizer().fit(X_train[numeric_cols])
+            f.write("\nNormalizer: %s"% normalizer)
             X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
             y_train.reset_index(drop=True, inplace=True)
             normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
@@ -1680,10 +1683,12 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         if options['rebalance'] == "True":
             #st.write('rebalance')
             X_train, y_train = Common_Tools.rebalance(X_train, y_train, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
-        
+            f.write("\nRebalance is Done.")
+
         # Feature Selection if chosen
         if options['FeatureSelection'] == "True":
             #st.write("FeatureSelection")
+            f.write("\nFeature Selection: %s"% options['method'])
             if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                 featureSelection_methods = options['method'].split("-")
             else:
@@ -1697,17 +1702,21 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
             selected_features = list(X_train.columns)
 
         repeated_stratified_kfold = RepeatedStratifiedKFold(n_splits=options['CV'], n_repeats=options['n_repeats'], random_state=42)
-        
+        f.write("\Repeated Stratified KFold: %s"%repeated_stratified_kfold)
+
         st.write("Training Started")
+        f.write("\nTraining Started...")
 
         start_time = time.time()
         tuned_df = Common_Tools.train_tune_cv(estimator, param_vals, X_train, y_train, options['strategy'], itr=options['itr'], cv=repeated_stratified_kfold)
         end_time = time.time()
         
         st.write("Training Done")
+        f.write("\nTraining Done")
 
         # get the best estimator
         estimator = tuned_df.best_estimator_
+        f.write("\nEstimator: %s"% estimator)
             
         cv_results = tuned_df.cv_results_
         #print(cv_results)
@@ -1890,6 +1899,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         if options['Impute'] == "True":
             #st.write("Impute")
             imputer = SimpleImputer(strategy = 'mean')
+            f.write("\nImputer: %s"% imputer)
             imputer.fit(X_train)
             X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
             y_train.reset_index(drop=True, inplace=True)
@@ -1903,6 +1913,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         if options['Scaling'] == "True" and len(numeric_cols) > 0:
             #st.write("Scaling")
             X_train, scaler = Common_Tools.scaling(X_train, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
+            f.write("\nScaler: %s"% scaler)
             y_train.reset_index(drop=True, inplace=True)
             scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
             joblib.dump(scaler, scale_name)
@@ -1915,6 +1926,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
             # Normalize the data
             from sklearn.preprocessing import Normalizer
             normalizer = Normalizer().fit(X_train[numeric_cols])
+            f.write("\nNormalizer: %s"% normalizer)
             X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
             y_train.reset_index(drop=True, inplace=True)
             normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
@@ -1928,10 +1940,12 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         if options['rebalance'] == "True":
             #st.write('rebalance')
             X_train, y_train = Common_Tools.rebalance(X_train, y_train, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
-        
+            f.write("\nRebalance is Done.")
+
         # Feature Selection if chosen
         if options['FeatureSelection'] == "True":
             #st.write("FeatureSelection")
+            f.write("\nFeature Selection: %s"% options['method'])
             if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                 featureSelection_methods = options['method'].split("-")
             else:
@@ -1945,18 +1959,22 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
             selected_features = list(X_train.columns)
 
         repeated_stratified_kfold = RepeatedStratifiedKFold(n_splits=options['CV'], n_repeats=options['n_repeats'], random_state=42)
+        f.write("\Repeated Stratified KFold: %s"%repeated_stratified_kfold)
         
         st.write("Training Started")
+        f.write("\nTraining Started...")
 
         start_time = time.time()
         tuned_df = Common_Tools.train_tune_cv(estimator, param_vals, X_train, y_train, options['strategy'], itr=options['itr'], cv=repeated_stratified_kfold)
         end_time = time.time()
         
         st.write("Training Done")
+        f.write("\nTraining Done")
 
         # get the best estimator
         estimator = tuned_df.best_estimator_
-            
+        f.write("\nEstimator: %s"% estimator)
+
         cv_results = tuned_df.cv_results_
         #print(cv_results)
         f.write("\nCV Results: %s"%cv_results)
@@ -2160,6 +2178,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             if options['Impute'] == "True":
                 #st.write("Impute")
                 imputer = SimpleImputer(strategy = 'mean')
+                f.write("\nImputer: %s"% imputer)
                 imputer.fit(X_train_fold)
                 X_train_fold = pd.DataFrame(imputer.transform(X_train_fold), columns = X_col)
                 y_train_fold.reset_index(drop=True, inplace=True)
@@ -2174,6 +2193,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 #st.write("Scaling")
                 X_train_fold, scaler = Common_Tools.scaling(X_train_fold, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
                 y_train_fold.reset_index(drop=True, inplace=True)
+                f.write("\nScaler: %s"% scaler)
                 #scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
                 #joblib.dump(scaler, scale_name)
                 # scale the test set
@@ -2185,6 +2205,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 # Normalize the data
                 from sklearn.preprocessing import Normalizer
                 normalizer = Normalizer().fit(X_train_fold[numeric_cols])
+                f.write("\nNormalizer: %s"% normalizer)
                 X_train_fold[numeric_cols] = normalizer.transform(X_train_fold[numeric_cols])
                 y_train_fold.reset_index(drop=True, inplace=True)
                 #normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
@@ -2198,10 +2219,12 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             if options['rebalance'] == "True":
                 #st.write('rebalance')
                 X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
-            
+                f.write("\nRebalance is Done.")
+
             # Feature Selection if chosen
             if options['FeatureSelection'] == "True":
                 #st.write("FeatureSelection")
+                f.write("\nFeature Selection: %s"% options['method'])
                 if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                     featureSelection_methods = options['method'].split("-")
                 else:
@@ -2215,7 +2238,10 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             else:
                 selected_features = list(X_train_fold.columns)
 
+            f.write("\nTraining Started...")
             estimator = Common_Tools.train_tune(estimator, param_vals, X_train_fold, y_train_fold, options['strategy'], itr=options['itr'])
+            f.write("\nTraining Done")
+            f.write("\nEstimator: %s"% estimator)
 
             params = estimator.get_params()
             f.write("\nParameters: %s"%params)
@@ -2268,7 +2294,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             metric_dic_test_list.append(metric_dic_test)
         
         st.write(f"Training with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
-        
+        f.write(f"\nTraining with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
+
         #st.write(ground_truth_train_list)
         #st.write(len(ground_truth_train_list))
         #for ground_truth_train in ground_truth_train_list:
