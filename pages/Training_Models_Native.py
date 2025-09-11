@@ -245,6 +245,8 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         # get input and ouput columns
         input_cols, label_cols, categorical_cols, numeric_cols = parse_exp_multi_outcomes(train_set["Data"], index_set["Data"], unique_value_threshold=unique_value_threshold)
         st.write("Label Columns: ", label_cols)
+        st.write("Categorical Columns: ", categorical_cols)
+        #st.write("Numeric Columns: ", numeric_cols)
 
         threshold_type = configuration_dic[project_name]['threshold_type']
         df_train = refine_binary_outcomes(train_set["Data"], label_cols)

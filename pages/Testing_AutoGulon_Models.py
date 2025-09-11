@@ -106,7 +106,7 @@ def sanitize_filename(filename):
     return filename
 
 # testing models function
-def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=None, cutoff_index='youden'):
+def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=None, cutoff_index='youden', algorithm_folder="Logfiles"):
     #st.write("Currently testing the models...")
 
     #placeholder = st.empty()  # Create a placeholder
@@ -124,9 +124,18 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
     
     # dictonary for feature importance
     feature_importance_dic = {}
+
+    os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for logfile
+
+    # create a log file for the outcome testing
+    log_filename = os.path.join(algorithm_folder, "logfile.txt")
+    f = open(log_filename, "w", encoding="utf-8")
     
     for outcome in outcomes:
         with st.spinner(f"Testing Model for {outcome}..."):
+
+            f.write("_____________________________________________________________________________________________________")
+            f.write("\nOutcome: %s"% outcome)
 
             # create the train/test set for the specifc input variables and specific outcome.
             if train_data_raw is not None:
@@ -142,6 +151,8 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
 
             y_test = test_data[outcome]
             print(f'Training Data: {test_data}')
+
+            f.write("\nTraining Data Length: %s"% len(test_data))
             
             # Count positives and negatives
             positives = np.sum(y_test == 1)  # Count instances of 1
@@ -163,6 +174,7 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                 # get the model
                 model = models[outcome]['Model']
                 print(f'Models Label: {model.label}')
+                f.write("\nModel: %s"% model)
                 #model = models
                     
                 outcome_dic[outcome] = {}
@@ -190,6 +202,7 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                 # create a states able for metric on the test set
                 res, res_array = full_roc_curve(y_test.to_numpy(), y_proba[1].to_numpy(), index=cutoff_index)
                 print("Results Array: ", res)
+                f.write("\nResults Array: %s"% res)
                 evaluation['TPR'] = res['tpr']
                 evaluation['TNR'] = res['tnr']
                 evaluation['FPR'] = res['fpr']
@@ -234,10 +247,13 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
 
         with st.spinner(f"Model Testing for {outcome} is Done. Now getting the Feature Importance..."):    
             print("Feature Importance....")
+            f.write("Feature Importance....")
             # Get feature importance
             feature_importance_df = model.feature_importance(test_data, time_limit=500)
 
             print("Feature Importance Array: ",feature_importance_df)
+
+            f.write("\nFeature Importance Array: %s"% feature_importance_df)
 
             # Sort by importance
             feature_importance_df_sorted = feature_importance_df.sort_values('importance', ascending=False)
@@ -259,12 +275,16 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                 st.error(f"Unable to make the feature importance table for {outcome}.")
 
             st.success(f'Testing for {outcome} is complete.')
+            f.write(f'Testing for {outcome} is complete.')
             print("_________________________________________________________")
     
     #st.write("Model Testing is Complete!") 
     # Write the ending message
     #placeholder.empty()  # Clears the output
+    f.write("Model Testing is Complete!")
     st.success("Model Testing is Complete!")
+
+    f.close()
     
     return results_dictonary, outcome_dic, feature_importance_dic
 
@@ -518,17 +538,25 @@ else:
     # Dropdown to select the testing dataset
     data_name_test = st.selectbox("Select a Testing Dataset from the database:", data_names_list_test, index=None, placeholder="Select One...")
     if data_name_test:
-        # upload the testing set
-        test_set = upload_data(os.path.join("Data Sets",data_name_test))
-        # Replace inf and -inf with NaN
-        test_set = test_set.replace([np.inf, -np.inf], np.nan)
+        try:
+            # upload the testing set
+            test_set = upload_data(os.path.join("Data Sets",data_name_test))
+            # Replace inf and -inf with NaN
+            test_set = test_set.replace([np.inf, -np.inf], np.nan)
 
-        # check if upload test set has the require input and output variables
-        test_cols = test_set.columns.to_list()
-        # Check if outcomes is a subset of test_cols
-        is_subset = all(x in test_cols for x in input_variables + outcomes)
-        if is_subset == False:
-            st.error("Uploaded test set does not have the required variables.")
+            # Display the DataFrame
+            st.write("### Test Set:")
+            st.dataframe(test_set)
+
+            # check if upload test set has the require input and output variables
+            test_cols = test_set.columns.to_list()
+            # Check if outcomes is a subset of test_cols
+            is_subset = all(x in test_cols for x in input_variables + outcomes)
+            if is_subset == False:
+                st.error("Uploaded test set does not have the required variables.")
+        except Exception as e:
+            st.error(f"Error loading dataset: {e}")
+            is_subset = False
     else:
         test_set = None
         is_subset = False
@@ -640,14 +668,14 @@ if input_variables is not None and model_path is not None and (uploaded_test_set
                     {"$set": { "exps used": exp_list }} # Update operation
                 )
 
+            algorithm_folder = os.path.join("Results", exp_name, test_set_name)
+            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
+
             # call the function to test models
-            results_dictonary, outcome_dic, feature_importance_dic = test_model(models_dic, test_set, input_variables, selected_outcomes, train_data_raw=train_set, cutoff_index=threshold_type)
+            results_dictonary, outcome_dic, feature_importance_dic = test_model(models_dic, test_set, input_variables, selected_outcomes, train_data_raw=train_set, cutoff_index=threshold_type, algorithm_folder=algorithm_folder)
 
             #st.write(results_dictonary)
             #st.write(feature_importance_dic)
-
-            algorithm_folder = os.path.join("Results", exp_name, test_set_name)
-            os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
 
             path_name = f"{algorithm_folder}/{exp_name}_results.joblib"
             joblib.dump(results_dictonary, path_name)

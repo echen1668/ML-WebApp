@@ -155,6 +155,13 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
             #st.write(options)
             algorithm_folder = os.path.join("Results", project_name, test_set_name, f'{algo_name} (results)', o_name)
             os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
+
+            # create a log file for the outcome testing
+            log_filename = os.path.join(algorithm_folder, algo_name + '_' + sanitize_filename(o_name) + "_log.txt")
+            f = open(log_filename, "w", encoding="utf-8")
+            f.write("_____________________________________________________________________________________________________")
+            f.write("\nAlgorithm: %s"% algo_name)
+            f.write("\nLabel: %s"% o_name)
                 
             metric_dic = {} # dictionary containg all important metrics
 
@@ -164,7 +171,9 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 keys_list = list(outcome_dic.keys())
                 #st.write(keys_list)
                 model = outcome_dic['Model']
+                f.write("\nModel: %s"% model)
                 features = outcome_dic['Features']
+                f.write("\nFeatures: %s"% features)
                 outcome_name = outcome_dic['Outcome Name']
                 df_res_train = outcome_dic['Train Set Res']
                 df_array_res_train = outcome_dic['Train Set Res Array']
@@ -174,6 +183,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 print("  Res Train Table: ", df_res_train)
                 print()
                 if model == 'N/A' :
+                    f.write(f"\n No Model for {o_name} for {algo_name}")
                     continue
                 
                 #print(input_columns)
@@ -188,6 +198,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 if 'Encoder' in keys_list:
                     print("Encoder")
                     encoder = outcome_dic['Encoder']
+                    f.write("\nEncoder: %s"% encoder)
                     encoded_cols = outcome_dic['Encoded Columns']
                     test_data[encoded_cols] = encoder.transform(test_data[categorical_columns])
 
@@ -198,14 +209,17 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 if 'Quantile Transformer' in keys_list:
                     print("Quantile Transformer")
                     qt = outcome_dic['Quantile Transformer']
+                    f.write("\nQuantile Transformer: %s"% qt)
                     test_data[numeric_columns] = qt.transform(test_data[numeric_columns])
                 
                     
                 #Seperate the inputs and outputs for test data
                 try:
                     X_test, y_test = split(test_data, input_columns, outcome_name)
+                    f.write("\nData Size : %s"% len(X_test))
                 except:
                     st.error("Input Columns do not match with data set.")
+                    f.write("Input Columns do not match with data set.")
                     return "Error"
                 #X_test, y_test = split(test_data, features, outcome_name)
                 X_col = X_test.columns.to_list()
@@ -226,6 +240,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 if 'Imputer' in keys_list:
                     print("Impute")
                     imputer = outcome_dic['Imputer']
+                    f.write("\nImputer: %s"% imputer)
                     X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col)
                     y_test.reset_index(drop=True, inplace=True)
         
@@ -233,6 +248,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 if 'Scaler' in keys_list:
                     print("Scaling")
                     scaler = outcome_dic['Scaler']
+                    f.write("\nScaler: %s"% scaler)
                     X_test[numeric_columns] = scaler.transform(X_test[numeric_columns])
                     y_test.reset_index(drop=True, inplace=True)
 
@@ -240,6 +256,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 if 'Normalizer' in keys_list:
                     print("Normalize")
                     normalizer = outcome_dic['Normalizer']
+                    f.write("\nNormalizer: %s"% normalizer)
                     X_test[numeric_columns] = normalizer.transform(X_test[numeric_columns])
                     y_test.reset_index(drop=True, inplace=True)
 
@@ -256,6 +273,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 # create a states able for metric on the test set
                 res, res_array = full_roc_curve(y_test, probas_test[:, 1], index=cutoff_index)
                 print("Results Array (Test Set): ", res)
+                f.write("\nResults Array (Test Set): %s"% res)
 
                 metric_dic['TPR'] = res['tpr']
                 metric_dic['TNR'] = res['tnr']
@@ -275,6 +293,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 #st.write(probas_test[:, 1])
                 predictions_test = [1 if p >= metric_dic['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
                 test_acc = accuracy_score(y_test, predictions_test) # test accuracy
+                f.write("\nTest Accuracy: %s"% test_acc)
                 print("Test Accuracy:", (test_acc * 100))
                 metric_dic['Accuracy'] = test_acc
                 
@@ -333,16 +352,18 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 plt.close()
                 
                 # plot the SHAP Values
-                plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
                 explainer = shap.Explainer(model.predict, X_test[features])
                 #shap_values = explainer.shap_values(X_test[features])
                 shap_values = explainer(X_test[features])
                 
-                try:
-                    shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = 10, show=False) 
-                except:
-                    shap.summary_plot(shap_values, X_test[features], plot_type='dot', show=False)
-                
+                max_display = min(10, X_test[features].shape[1])
+                shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = max_display, show=False) 
+                #try:
+                #    shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = 10, show=False) 
+                #except:
+                #    shap.summary_plot(shap_values, X_test[features], plot_type='dot', show=False)
+
+                plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
                 fig = plt.gcf()  # Get current figure
 
                 # Save the figure to a buffer
@@ -358,12 +379,16 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 
                 filename_shap = os.path.join(algorithm_folder, algo_name + "_" + sanitize_filename(outcome_name) + "_shap.png")
                 plt.savefig(filename_shap,dpi=700)
-                plt.show()  # Display the plot
+                #plt.show()  # Display the plot
                 plt.close(fig)
 
                 #st.write('Results Saved!')
 
             st.success(f"✅Testing Done for {algo_name} on {o_name}!")
+            f.write(f"\n✅Testing Done for {algo_name} on {o_name}!")
+            f.write('\n')
+            f.close()
+
             print("_________________________________________________________")
 
     st.success(f"✅Testing is Complete!")
@@ -561,17 +586,25 @@ else:
     # Dropdown to select the testing dataset
     data_name_test = st.selectbox("Select a Testing Dataset from the database:", data_names_list_test, index=None, placeholder="Select One...")
     if data_name_test:
-        # upload the testing set
-        test_set = upload_data(os.path.join("Data Sets",data_name_test))
-        # Replace inf and -inf with NaN
-        test_set = test_set.replace([np.inf, -np.inf], np.nan)
+        try:
+            # upload the testing set
+            test_set = upload_data(os.path.join("Data Sets",data_name_test))
+            # Replace inf and -inf with NaN
+            test_set = test_set.replace([np.inf, -np.inf], np.nan)
 
-        # check if upload test set has the require input and output variables
-        test_cols = test_set.columns.to_list()
-        # Check if outcomes is a subset of test_cols
-        is_subset = all(x in test_cols for x in outcomes)
-        if is_subset == False:
-            st.error("Uploaded test set does not have the required output variables.")
+            # Display the DataFrame
+            st.write("### Test Set:")
+            st.dataframe(test_set)
+
+            # check if upload test set has the require input and output variables
+            test_cols = test_set.columns.to_list()
+            # Check if outcomes is a subset of test_cols
+            is_subset = all(x in test_cols for x in outcomes)
+            if is_subset == False:
+                st.error("Uploaded test set does not have the required output variables.")
+        except Exception as e:
+            st.error(f"Error loading dataset: {e}")
+            is_subset = False
     else:
         is_subset = False
 
