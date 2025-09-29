@@ -80,7 +80,7 @@ if connected == True:
     st.write("")
     st.write("")
 
-    # 4. Link to the Deletion Page
+    # 4. Link to the Database Listing
     st.subheader("🗒️ Database List")
     st.write("Look at a list of all the ML experiments and datasets saved and access of information about them.")
     st.page_link("pages/Experiment_Info.py", label="Go to List", icon="🗒️") 
@@ -89,5 +89,10 @@ if connected == True:
     st.subheader("🔧 Manage Experiments, Results, and Datasets")
     st.write("Search for one or more experiments/results/dataset from the database and either remove it from both the database and file system or rename it.")
     st.page_link("pages/Manage_Items.py", label="Go to Management", icon="🔧")
+
+    # 6. Link to the Data Preprocess Page
+    st.subheader("📝 Data Preprocessing and Engineering")
+    st.write("This page allows you to upload a dataset and do  preprocessing and engineering measures on it before saving it in the database.")
+    st.page_link("pages/Data_Preprocess.py", label="Go to Preprocess", icon="📝")
 else:
     st.info("Please connect to a database.")

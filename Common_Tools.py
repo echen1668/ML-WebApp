@@ -471,6 +471,10 @@ def resize_arrays_to_smallest(arrays):
 def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMissingRows='True', threshold=0.75, oneHotEncode='True', inf='replace with null', outliers='None', N=20000, QuantileTransformer='False'):
     if oneHotEncode == 'True':
         print("oneHotEncode")
+        # convert all values in categorical columns into strings
+        df[categorical_cols] = df[categorical_cols].astype(str)
+        # Replace placeholders with proper NaN
+        #df[categorical_cols] = df[categorical_cols].replace( ["nan", "NaN", "None", "NONE", "<NA>", "null", ""], np.nan)
         # One Hot Encode catagorical variables
         from sklearn.preprocessing import OneHotEncoder
         encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')

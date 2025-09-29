@@ -2334,13 +2334,6 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
            
         algo_dictonary[label_col] = {}
 
-        # save the results in the algo_dictonary
-        # algo_dictonary[label_col]["Ground Truths"]["Train"] = ground_truth_train_list
-        # algo_dictonary[label_col]["Ground Truths"]["Test"] = ground_truth_test_list
-
-        #algo_dictonary[label_col]["Predictions"]["Train"] = predictions_train_list
-        #algo_dictonary[label_col]["Predictions"]["Test"] = predictions_test_list
-
         # get the average confustion matrix
         avg_conf_matrix_train = sum_conf_matrix_train / options['CV']
         avg_conf_matrix_test = sum_conf_matrix_test / options['CV']
@@ -2356,6 +2349,13 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         algo_dictonary[label_col]["Conf_Matrix"] = {}
         algo_dictonary[label_col]["Conf_Matrix"]["Train"] = avg_conf_matrix_train
         algo_dictonary[label_col]["Conf_Matrix"]["Test"] = avg_conf_matrix_test
+
+        # save the results in the algo_dictonary
+        #algo_dictonary[label_col]["Ground Truths"]["Train"] = ground_truth_train_list
+        #algo_dictonary[label_col]["Ground Truths"]["Test"] = ground_truth_test_list
+
+        #algo_dictonary[label_col]["Predictions"]["Train"] = predictions_train_list
+        #algo_dictonary[label_col]["Predictions"]["Test"] = predictions_test_list
 
         f.close()
         
@@ -2470,17 +2470,26 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
 
     if is_shap==True:
         # plot the SHAP Values
-        plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
+        #plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
+
         explainer = shap.Explainer(model.predict, X_test)
         #shap_values = explainer.shap_values(X_test)
         shap_values = explainer(X_test, max_evals=(2 * (X_test.shape[1] + 1)))
+
+        # Tell SHAP to use matplotlib (instead of default behavior)
+        shap.initjs()  # safe even if not using JS plots
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        max_display = min(10, X_test.shape[1])
+        shap.summary_plot(shap_values, X_test, plot_type='dot', max_display = max_display, show=False)
                 
-        try:
-            shap.summary_plot(shap_values, X_test, plot_type='dot', max_display = 10, show=False) 
-        except:
-            shap.summary_plot(shap_values, X_test, plot_type='dot', show=False)
+        #try:
+        #    shap.summary_plot(shap_values, X_test, plot_type='dot', max_display = 10, show=False) 
+        #except:
+        #    shap.summary_plot(shap_values, X_test, plot_type='dot', show=False)
                 
-        fig = plt.gcf()  # Get current figure
+        #fig = plt.gcf()  # Get current figure
+        fig.suptitle(f'SHAP Values for {outcome_name} on {algo_name}')
 
         # Save the figure to a buffer
         buf = io.BytesIO()
@@ -2489,8 +2498,8 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
         image_data = buf.read()
                 
         filename_shap = os.path.join(algorithm_folder, algo_name + "_" + Common_Tools.sanitize_filename(outcome_name) + "_shap.png")
-        plt.savefig(filename_shap,dpi=700)
-        plt.show()  # Display the plot
+        plt.savefig(filename_shap,dpi=700, bbox_inches="tight")
+        #plt.show()  # Display the plot
         plt.close(fig)
     else:
         image_data = None
