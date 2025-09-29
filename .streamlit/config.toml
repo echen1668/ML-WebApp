@@ -1,2 +1,7 @@
 [client]
 showSidebarNavigation = false
+[server]
+maxUploadSize = 10000
+maxMessageSize = 10000
+runOnSave = true
+headless = true
