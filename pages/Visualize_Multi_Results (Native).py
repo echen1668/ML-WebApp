@@ -94,7 +94,7 @@ if "outcome_options" not in st.session_state:
 
 def plot_roc(data, options):
     # Plot ROC curves
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
 
     # go throught each outcome to plot its ROC curve
     for option in options:
@@ -135,7 +135,7 @@ def plot_roc(data, options):
         sensitivity = res_array['tpr']
 
         # plot the ROC Curve
-        ax.plot(fpr, tpr, label=f'{option} (AUC = {roc_auc:.4f} [{auc_ci_low:.4f}, {auc_ci_high:.4f}])', linewidth=2)
+        ax.plot(fpr, tpr, label=f'{option} (AUC = {roc_auc:.4f} [{auc_ci_low:.4f}, {auc_ci_high:.4f}])', linewidth=1)
 
         # get the CI
         ax.fill_between(1-specificity, res_array['tpr_low'], res_array['tpr_high'], alpha=.2)
@@ -145,14 +145,14 @@ def plot_roc(data, options):
     ax.set_xlabel("False Positive Rate", fontsize=10)
     ax.set_ylabel("True Positive Rate", fontsize=10)
     ax.set_title("ROC Curves", fontsize=12)
-    ax.legend(loc="lower right", fontsize=8)
+    ax.legend(loc="lower right", fontsize=4)
 
     st.pyplot(fig, use_container_width=False)  # Use Streamlit's function to display the plot
 
 
 def plot_pr(data, options):
     # Plot ROC curves
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
 
     # go throught each outcome to plot its PR curve
     for option in options:
@@ -173,13 +173,13 @@ def plot_pr(data, options):
         pr_auc_score = auc(recall, precision)
 
         # plot the PR Curve
-        ax.plot(recall, precision, label=f'{option} (AUC = {pr_auc_score:.4f})', linewidth=2)
+        ax.plot(recall, precision, label=f'{option} (AUC = {pr_auc_score:.4f})', linewidth=1)
 
     ax.plot([0, 1], [1, 0], 'k--')  # Diagonal line for reference
     ax.set_xlabel("Recall", fontsize=10)
     ax.set_ylabel("Precision", fontsize=10)
     ax.set_title("Precision-Recall Curve", fontsize=12)
-    ax.legend(loc="lower right", fontsize=8)
+    ax.legend(loc="lower right", fontsize=4)
 
     st.pyplot(fig, use_container_width=False)  # Use Streamlit's function to display the plot
 
@@ -237,22 +237,22 @@ def plot_confusion_matrix(data, option_cm):
     #st.write(cm)
 
     # Plot Confusion matrix chart
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
 
     # Show the matrix with color
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    fig.colorbar(im, ax=ax)
+    fig.colorbar(im, ax=ax, shrink=0.7)
 
     # Set labels and title
-    ax.set_xlabel('Predicted Labels', fontsize=12)
-    ax.set_ylabel('True Labels', fontsize=12)
-    ax.set_title('Confusion Matrix', fontsize=12)
+    ax.set_xlabel('Predicted Labels', fontsize=8)
+    ax.set_ylabel('True Labels', fontsize=8)
+    ax.set_title('Confusion Matrix', fontsize=8)
 
     # Set tick labels
     ax.set_xticks(np.arange(len(classes)))
     ax.set_yticks(np.arange(len(classes)))
-    ax.set_xticklabels(classes, fontsize=12)
-    ax.set_yticklabels(classes, fontsize=12)
+    ax.set_xticklabels(classes, fontsize=8)
+    ax.set_yticklabels(classes, fontsize=8)
 
     # Rotate the tick labels and set alignment
     #plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")

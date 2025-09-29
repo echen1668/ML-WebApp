@@ -219,8 +219,8 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
             }
             datasets.insert_one(dataset_train)
         else:
-            st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database", icon="ℹ️")
-
+            st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database. Will be overwritten in the database", icon="ℹ️")
+            save_data(train_set['Name'], train_set['Data'], os.path.join("Data Sets", train_set['Name']))
             # update the dataset in datbase to trackdown the list of ML exps the set was used on
             dataset = datasets.find_one({"data_name": train_set['Name'], "type": "Train"})
             # Get the current list of experiments or initialize it if not present
@@ -245,8 +245,9 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         # get input and ouput columns
         input_cols, label_cols, categorical_cols, numeric_cols = parse_exp_multi_outcomes(train_set["Data"], index_set["Data"], unique_value_threshold=unique_value_threshold)
         st.write("Label Columns: ", label_cols)
-        st.write("Categorical Columns: ", categorical_cols)
+        #st.write("Categorical Columns: ", categorical_cols)
         #st.write("Numeric Columns: ", numeric_cols)
+        input_cols_og = input_cols.copy() # keep the origional input list
 
         threshold_type = configuration_dic[project_name]['threshold_type']
         df_train = refine_binary_outcomes(train_set["Data"], label_cols)
@@ -325,6 +326,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                 "model_path": pathway_name,
                 "algorithms": algorithms,
                 "input variables": input_cols,
+                "input variables (original)": input_cols_og,
                 'outcomes': label_cols,
                 "configuration": configuration_dic,
                 "train_data": train_set["Name"],

@@ -104,6 +104,9 @@ options_test_set = { # default options dict
         'Normalize': "True",
         'rebalance' : "True",
         'rebalance_type': "SMOTE",
+        'sampling_strategy': 'auto',
+        'sampling_ratio': 0.0,
+        'k_neighbors': 5,
         'FeatureSelection': "True",
         "method": 'SelectKBest-f_classif',
         'N_features': 40, 
@@ -128,6 +131,9 @@ options_default = { # test set options dict
         'Normalize': "True",
         'rebalance' : "True",
         'rebalance_type': "SMOTE",
+        'sampling_strategy': 'auto',
+        'sampling_ratio': 0.0,
+        'k_neighbors': 5,
         'FeatureSelection': "True",
         "method": 'SelectKBest-f_classif',
         'N_features': 40, 
@@ -672,26 +678,26 @@ def scaling(df, input_cols, label_cols, numeric_cols, categorical_cols, scalingM
         return df, scaler
 
 #rebalance the imbalanced data with a chosen label
-def rebalance(input_df, label_df, type='RandomUnderSampler'):
+def rebalance(input_df, label_df, type='RandomUnderSampler', sampling_strategy='auto', k_neighbors=5):
     if type == 'RandomUnderSampler':
         # random undersampling reduces the number of majority class randomly down to the desired ratio against the minority class.
         from imblearn.under_sampling import RandomUnderSampler
-        rebalance = RandomUnderSampler()
+        rebalance = RandomUnderSampler(sampling_strategy=sampling_strategy)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)
     elif type == 'RandomOverSampler':
         # Naive random over-sampling.
         from imblearn.over_sampling import RandomOverSampler
-        rebalance = RandomOverSampler()
+        rebalance = RandomOverSampler(sampling_strategy=sampling_strategy)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)
     elif type == 'SMOTE':
         # SMOTE is a technique to up-sample the minority classes while avoiding overfitting.
         from imblearn.over_sampling import SMOTE
-        rebalance = SMOTE()
+        rebalance = SMOTE(sampling_strategy=sampling_strategy, k_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)    
     elif type == 'ADASYN':
         # Adaptive Synthetic (ADASYN) algorithm. This method is similar to SMOTE but it generates different number of samples depending on an estimate of the local distribution of the class to be oversampled.
         from imblearn.over_sampling import ADASYN
-        rebalance = ADASYN()
+        rebalance = ADASYN(sampling_strategy=sampling_strategy, n_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)                   
     else:
         print("Cannot do")

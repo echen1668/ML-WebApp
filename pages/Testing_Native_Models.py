@@ -35,7 +35,7 @@ import pprint
 import pymongo
 from pymongo import MongoClient
 from streamlit_cookies_manager import EncryptedCookieManager
-from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data, save_data
+from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data, save_data, load_data
 from roctools import full_roc_curve, plot_roc_curve
 
 # --- Page Configuration ---
@@ -44,6 +44,7 @@ st.set_page_config(
     page_icon="🧪",
     layout="wide"
 )
+
 # back button to return to main page
 if st.button('Back'):
     st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
@@ -110,14 +111,16 @@ def find_option_dic(configuration, project_name, algorithm):
         if main_dic[key]["algorithm"] == algorithm:
             return main_dic[key]["options"]
 
-def preprocessdata(df, numeric_cols, cutMissingRows='True', threshold=0.75, inf='replace with null', outliers='None', N=20000):
+def preprocessdata(df, input_columns, numeric_cols, cutMissingRows='True', threshold=0.75, inf='replace with null', outliers='None', N=20000):
     if cutMissingRows == 'True':
         print("cutMissingRows")
-        # Drop rows with missing values
+        # Drop rows with too many missing values
         # computing number of columns
-        cols = len(df.axes[1])
+        cols = len(df[input_columns].axes[1])
         print("Cuttoff", int(threshold * cols))
+        print(f"Data Size then: {len(df)}")
         df = df.dropna(thresh=int(threshold * cols))
+        print(f"Data Size now: {len(df)}")
 
     if inf == 'replace with null':
         print("replace with null")
@@ -200,10 +203,19 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                     encoder = outcome_dic['Encoder']
                     f.write("\nEncoder: %s"% encoder)
                     encoded_cols = outcome_dic['Encoded Columns']
+                    #st.write(encoded_cols)
+
+                    # Convert to string type (to avoid np.isnan on object)
+                    test_data[categorical_columns] = test_data[categorical_columns].astype(str)
+                    # Replace placeholders with proper NaN
+                    test_data[categorical_columns] = test_data[categorical_columns].replace(
+                        ["nan", "NaN", "None", "NONE", "<NA>", "null", ""], np.nan
+                    )
+
                     test_data[encoded_cols] = encoder.transform(test_data[categorical_columns])
 
                 # preprocess the testing data
-                test_data = preprocessdata(test_data, numeric_columns, cutMissingRows=options['cutMissingRows'], threshold=options['cut threshold'], inf=options['inf'], outliers=options['outliers'], N=options['outliers_N'])
+                test_data = preprocessdata(test_data, input_columns, numeric_columns, cutMissingRows=options['cutMissingRows'], threshold=options['cut threshold'], inf=options['inf'], outliers=options['outliers'], N=options['outliers_N'])
 
                 # Quantile Transformer
                 if 'Quantile Transformer' in keys_list:
@@ -232,16 +244,20 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 # Count positives and negatives
                 positives = np.sum(y_test == 1)  # Count instances of 1
                 negatives = np.sum(y_test == 0)  # Count instances of 0
-                
+
                 print("Postive Count (on training set):", positives)
                 print("Negative Count (on training set):", negatives)
+
+                if positives <= 0:
+                    st.error(f"{o_name} has no postive labels. Testing Done for {algo_name} on {o_name} not possible.")
+                    continue
                     
                 # Imputing Data
                 if 'Imputer' in keys_list:
                     print("Impute")
                     imputer = outcome_dic['Imputer']
                     f.write("\nImputer: %s"% imputer)
-                    X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col)
+                    X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col, index=X_test.index)
                     y_test.reset_index(drop=True, inplace=True)
         
                 # Scaling Data
@@ -270,6 +286,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 probas_test = model.predict_proba(X_test[features]) # get probablities with test set
                 #model.predict(X_test[features]) # predict with test set
                 
+                #st.write(np.unique(y_test))
                 # create a states able for metric on the test set
                 res, res_array = full_roc_curve(y_test, probas_test[:, 1], index=cutoff_index)
                 print("Results Array (Test Set): ", res)
@@ -357,14 +374,15 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 shap_values = explainer(X_test[features])
                 
                 max_display = min(10, X_test[features].shape[1])
-                shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = max_display, show=False) 
-                #try:
-                #    shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = 10, show=False) 
-                #except:
-                #    shap.summary_plot(shap_values, X_test[features], plot_type='dot', show=False)
 
-                plt.title(f'SHAP Values for {outcome_name} on {algo_name}')
-                fig = plt.gcf()  # Get current figure
+                # Tell SHAP to use matplotlib (instead of default behavior)
+                shap.initjs()  # safe even if not using JS plots
+                #plt.clf()  # clear any old figures before SHAP plot
+                fig, ax = plt.subplots(figsize=(10, 6))
+                shap.summary_plot(shap_values, X_test[features], plot_type='dot', max_display = max_display, show=False)
+                #fig = plt.gcf()  # Create a new figure
+                #plt.suptitle(f'SHAP Values for {outcome_name} on {algo_name}')
+                fig.suptitle(f'SHAP Values for {outcome_name} on {algo_name}')
 
                 # Save the figure to a buffer
                 buf = io.BytesIO()
@@ -378,7 +396,8 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 results_dictonary[algo_name][outcome_name]['shap values'] = image_data
                 
                 filename_shap = os.path.join(algorithm_folder, algo_name + "_" + sanitize_filename(outcome_name) + "_shap.png")
-                plt.savefig(filename_shap,dpi=700)
+                #plt.savefig(filename_shap,dpi=700, bbox_inches="tight")
+                fig.savefig(filename_shap, dpi=700, bbox_inches="tight")
                 #plt.show()  # Display the plot
                 plt.close(fig)
 
@@ -508,6 +527,10 @@ configuration = exp_dic['configuration'] if exp_dic is not None else None
 model_type = exp_dic['type'] if exp_dic is not None else None
 num_algo = len(exp_dic['algorithms']) if exp_dic is not None else None
 input_variables = exp_dic['input variables'] if exp_dic is not None else None
+try:
+    input_cols_og = exp_dic['input variables (original)'] if exp_dic is not None else None
+except:
+    input_cols_og = input_variables
 outcomes = exp_dic['outcomes'] if exp_dic is not None else None
 train_data = exp_dic['train_data'] if exp_dic is not None else None
 
@@ -552,17 +575,15 @@ data_options = st.radio("Choose an option:", ["Upload a testing set", "Retrive t
 
 if data_options == "Upload a testing set":
     data_name_test = None
+    dataset_uploader_key = "main_dataset_uploader"
     # File uploader for the test
-    uploaded_test_set = st.file_uploader("Upload a Testing Data Set")
+    uploaded_test_set = st.file_uploader("Upload a Testing Data Set", type=['csv', 'xlsx'], key=dataset_uploader_key)
 
     # upload the test set
     if uploaded_test_set is not None:
         try:
             # Determine file type and read accordingly
-            if uploaded_test_set.name.endswith(".csv"):
-                test_set = pd.read_csv(uploaded_test_set)
-            else:
-                test_set = pd.read_excel(uploaded_test_set)
+            test_set = load_data(uploaded_test_set.name, uploaded_test_set)
             
             # Replace inf and -inf with NaN
             test_set = test_set.replace([np.inf, -np.inf], np.nan)
@@ -573,10 +594,17 @@ if data_options == "Upload a testing set":
 
             # check if upload test set has the require input and output variables
             test_cols = test_set.columns.to_list()
-            # Check if  outcomes is a subset of test_cols
-            is_subset = all(x in test_cols for x in outcomes)
+            # Check if  outcomes and input_cols_og is a subset of test_cols
+            is_subset = all(x in test_cols for x in outcomes + input_cols_og)
+            #is_subset = True
             if is_subset == False:
-                st.error("Uploaded test set does not have the required output variables.")
+                st.error("Uploaded test set does not have the required variables.")
+
+                # Convert to sets
+                required_cols = set(outcomes + input_cols_og)
+                test_cols_set = set(test_cols)
+                missing_cols = required_cols - test_cols_set
+                st.error(f'Missing Features: {missing_cols}')
 
         except Exception as e:
             st.error(f"Error loading file: {e}")
@@ -598,10 +626,17 @@ else:
 
             # check if upload test set has the require input and output variables
             test_cols = test_set.columns.to_list()
-            # Check if outcomes is a subset of test_cols
-            is_subset = all(x in test_cols for x in outcomes)
+            # Check if  outcomes is a subset of test_cols
+            is_subset = all(x in test_cols for x in outcomes + input_cols_og)
+            #is_subset = True
             if is_subset == False:
-                st.error("Uploaded test set does not have the required output variables.")
+                st.error("Uploaded test set does not have the required variables.")
+
+                # Convert to sets
+                required_cols = set(outcomes + input_cols_og)
+                test_cols_set = set(test_cols)
+                missing_cols = required_cols - test_cols_set
+                st.error(f'Missing Features: {missing_cols}')
         except Exception as e:
             st.error(f"Error loading dataset: {e}")
             is_subset = False
@@ -699,9 +734,9 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
                 }
                 datasets.insert_one(dataset_test)
             else:
-                st.info(f"Testing Dataset of the same name is already in the database", icon="ℹ️")
-
+                st.info(f"Testing Dataset of the same name is already in the database. Will be overwritten in the database", icon="ℹ️")
                 test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+                save_data(test_name, test_set, os.path.join("Data Sets", test_name))
                 # update the dataset in datbase to trackdown the list of ML exps the set was used on
                 dataset = datasets.find_one({"data_name": test_name, "type": "Test"})
                 # Get the current list of experiments or initialize it if not present

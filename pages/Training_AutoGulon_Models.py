@@ -313,8 +313,8 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
             }
             datasets.insert_one(dataset_train)
         else:
-            st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database", icon="ℹ️")
-
+            st.info(f"Training Dataset {train_set['Name']} of the same name is already in the database. Will be overwritten in the database", icon="ℹ️")
+            save_data(train_set['Name'], train_set['Data'], os.path.join("Data Sets", train_set['Name']))
             # update the dataset in datbase to trackdown the list of ML exps the set was used on
             dataset = datasets.find_one({"data_name": train_set['Name'], "type": "Train"})
             # Get the current list of experiments or initialize it if not present

@@ -892,10 +892,10 @@ def multi_outcome_stratified_binary(df, input_cols, label_cols, numeric_cols, ca
             # Rebalance Data if chosen
             if options['rebalance'] == "True":
                 print('rebalance')
-                X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, options['rebalance_type'])
+                X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
             # Feature Selection if chosen
             if options['FeatureSelection'] == "True":
-                X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=options['method'], type=options['type'], N=options['N_features'], per=options['per'])
+                X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=options['method'], type=options['type'], N=options['N_features'], per=options['per'], cv=options['CV'], estimator=estimator)
                 #print(selected_features)
                 X_test_fold = X_test_fold[selected_features]
                 f.write("\nSelected Features: %s"%selected_features)
@@ -1291,10 +1291,10 @@ def multi_outcome_repeated_stratified_binary(df, input_cols, label_cols, numeric
             # Rebalance Data if chosen
             if options['rebalance'] == "True":
                 print('rebalance')
-                X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, options['rebalance_type'])
+                X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
             # Feature Selection if chosen
             if options['FeatureSelection'] == "True":
-                X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=options['method'], type=options['type'], N=options['N_features'], per=options['per'])
+                X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=options['method'], type=options['type'], N=options['N_features'], per=options['per'], cv=options['CV'], estimator=estimator)
                 #print(selected_features)
                 X_test_fold = X_test_fold[selected_features]
                 f.write("\nSelected Features: %s"%selected_features)
@@ -1628,7 +1628,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         f.write("_____________________________________________________________________________________________________")
         f.write("\nAlgorithm: %s"% algorithm)
         f.write("\nLabel: %s"% label_col)
-        f.write("\Data Size : %s"% len(X_train))
+        f.write("\nData Size : %s"% len(X_train))
         if (y_train == 1).sum() < 10:
             print("Too little postive outcomes to predict (after removing early cases)")
             f.write("\nToo little postive outcomes to predict (after removing early cases)")
@@ -1650,6 +1650,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         if options['Impute'] == "True":
             #st.write("Impute")
             imputer = SimpleImputer(strategy = 'mean')
+            f.write("\nImputer: %s"% imputer)
             imputer.fit(X_train)
             X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
             y_train.reset_index(drop=True, inplace=True)
@@ -1660,6 +1661,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         if options['Scaling'] == "True" and len(numeric_cols) > 0:
             #st.write("Scaling")
             X_train, scaler = Common_Tools.scaling(X_train, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
+            f.write("\nScaler: %s"% scaler)
             y_train.reset_index(drop=True, inplace=True)
             scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
             joblib.dump(scaler, scale_name)
@@ -1670,6 +1672,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
             # Normalize the data
             from sklearn.preprocessing import Normalizer
             normalizer = Normalizer().fit(X_train[numeric_cols])
+            f.write("\nNormalizer: %s"% normalizer)
             X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
             y_train.reset_index(drop=True, inplace=True)
             normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
@@ -1679,17 +1682,19 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         # Rebalance Data if chosen
         if options['rebalance'] == "True":
             #st.write('rebalance')
-            X_train, y_train = Common_Tools.rebalance(X_train, y_train, options['rebalance_type'])
-        
+            X_train, y_train = Common_Tools.rebalance(X_train, y_train, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
+            f.write("\nRebalance is Done.")
+
         # Feature Selection if chosen
         if options['FeatureSelection'] == "True":
             #st.write("FeatureSelection")
-            if options['method'] not in ['MRMR', 'VarianceThreshold']:
+            f.write("\nFeature Selection: %s"% options['method'])
+            if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                 featureSelection_methods = options['method'].split("-")
             else:
                 featureSelection_methods = [options['method'], None]
             #st.write(featureSelection_methods)
-            X_train, selected_features = Common_Tools.feature_selection(X_train, y_train, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'])
+            X_train, selected_features = Common_Tools.feature_selection(X_train, y_train, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'], cv=options['CV'], estimator=estimator)
             #print(selected_features)
             f.write("\nSelected Features: %s"%selected_features)
             f.write("\n")
@@ -1699,15 +1704,18 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         repeated_stratified_kfold = RepeatedStratifiedKFold(n_splits=options['CV'], n_repeats=options['n_repeats'], random_state=42)
         
         st.write("Training Started")
+        f.write("\nTraining Started...")
 
         start_time = time.time()
         tuned_df = Common_Tools.train_tune_cv(estimator, param_vals, X_train, y_train, options['strategy'], itr=options['itr'], cv=repeated_stratified_kfold)
         end_time = time.time()
         
         st.write("Training Done")
+        f.write("\nTraining Done")
 
         # get the best estimator
         estimator = tuned_df.best_estimator_
+        f.write("\nEstimator: %s"% estimator)
             
         cv_results = tuned_df.cv_results_
         #print(cv_results)
@@ -1927,17 +1935,17 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         # Rebalance Data if chosen
         if options['rebalance'] == "True":
             #st.write('rebalance')
-            X_train, y_train = Common_Tools.rebalance(X_train, y_train, options['rebalance_type'])
+            X_train, y_train = Common_Tools.rebalance(X_train, y_train, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
         
         # Feature Selection if chosen
         if options['FeatureSelection'] == "True":
             #st.write("FeatureSelection")
-            if options['method'] not in ['MRMR', 'VarianceThreshold']:
+            if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                 featureSelection_methods = options['method'].split("-")
             else:
                 featureSelection_methods = [options['method'], None]
             #st.write(featureSelection_methods)
-            X_train, selected_features = Common_Tools.feature_selection(X_train, y_train, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'])
+            X_train, selected_features = Common_Tools.feature_selection(X_train, y_train, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'], cv=options['CV'], estimator=estimator)
             #print(selected_features)
             f.write("\nSelected Features: %s"%selected_features)
             f.write("\n")
@@ -2197,17 +2205,17 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             # Rebalance Data if chosen
             if options['rebalance'] == "True":
                 #st.write('rebalance')
-                X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, options['rebalance_type'])
+                X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
             
             # Feature Selection if chosen
             if options['FeatureSelection'] == "True":
                 #st.write("FeatureSelection")
-                if options['method'] not in ['MRMR', 'VarianceThreshold']:
+                if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                     featureSelection_methods = options['method'].split("-")
                 else:
                     featureSelection_methods = [options['method'], None]
                 #st.write(featureSelection_methods)
-                X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'])
+                X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'], cv=options['CV'], estimator=estimator)
                 #print(selected_features)
                 X_test_fold = X_test_fold[selected_features]
                 f.write("\nSelected Features: %s"%selected_features)

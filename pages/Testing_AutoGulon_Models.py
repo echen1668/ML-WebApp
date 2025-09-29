@@ -652,9 +652,9 @@ if input_variables is not None and model_path is not None and (uploaded_test_set
                 }
                 datasets.insert_one(dataset_test)
             else:
-                st.info(f"Testing Dataset of the same name is already in the database", icon="ℹ️")
-
+                st.info(f"Testing Dataset of the same name is already in the database. Will be overwritten in the database", icon="ℹ️")
                 test_name = uploaded_test_set.name if data_name_test == None else data_name_test
+                save_data(test_name, test_set, os.path.join("Data Sets", test_name))
                 # update the dataset in datbase to trackdown the list of ML exps the set was used on
                 dataset = datasets.find_one({"data_name": test_name, "type": "Test"})
                 # Get the current list of experiments or initialize it if not present
