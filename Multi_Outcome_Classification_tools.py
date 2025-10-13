@@ -874,7 +874,7 @@ def multi_outcome_stratified_binary(df, input_cols, label_cols, numeric_cols, ca
             # Imputing Data if chosen
             if options['Impute'] == "True":
                 print("Impute")
-                imputer = SimpleImputer(strategy = 'mean')
+                imputer = SimpleImputer(strategy = options['impute_strategy'])
                 imputer.fit(X_train_fold)
                 X_train_fold = pd.DataFrame(imputer.transform(X_train_fold), columns = X_col)
                 #df[numeric_cols] = imputer.transform(df[numeric_cols])
@@ -1273,7 +1273,7 @@ def multi_outcome_repeated_stratified_binary(df, input_cols, label_cols, numeric
             # Imputing Data if chosen
             if options['Impute'] == "True":
                 print("Impute")
-                imputer = SimpleImputer(strategy = 'mean')
+                imputer = SimpleImputer(strategy = options['impute_strategy'])
                 imputer.fit(X_train_fold)
                 X_train_fold = pd.DataFrame(imputer.transform(X_train_fold), columns = X_col)
                 #df[numeric_cols] = imputer.transform(df[numeric_cols])
@@ -1649,10 +1649,11 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         # Imputing Data if chosen
         if options['Impute'] == "True":
             #st.write("Impute")
-            imputer = SimpleImputer(strategy = 'mean')
+            imputer = SimpleImputer(strategy = options['impute_strategy'])
             f.write("\nImputer: %s"% imputer)
             imputer.fit(X_train)
-            X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
+            #X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
+            X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col, index=X_train.index)
             y_train.reset_index(drop=True, inplace=True)
             imputing_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_imputer.joblib")
             joblib.dump(imputer, imputing_name)
@@ -1673,7 +1674,8 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
             from sklearn.preprocessing import Normalizer
             normalizer = Normalizer().fit(X_train[numeric_cols])
             f.write("\nNormalizer: %s"% normalizer)
-            X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
+            #X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
+            X_train.loc[:, numeric_cols] = normalizer.transform(X_train[numeric_cols])
             y_train.reset_index(drop=True, inplace=True)
             normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
             joblib.dump(normalizer, normalize_name)
@@ -1810,7 +1812,7 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
     algorithm_folder = os.path.join(project_folder, experiment_name)
     os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
     with open(os.path.join(algorithm_folder, "excluded_label_cols_setup.txt"), "w", encoding="utf-8") as file:
-        file.write('Label Columns not included due to too little postive labels:  %s (%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
+        file.write('Label Columns not included due to too little postive labels:  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('Threshold was number of values == 1 is less than 10')
     
     avg_cpu_info = total_cpu_info / len(filtered_label_cols)
@@ -1898,15 +1900,17 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         # Imputing Data if chosen
         if options['Impute'] == "True":
             #st.write("Impute")
-            imputer = SimpleImputer(strategy = 'mean')
+            imputer = SimpleImputer(strategy = options['impute_strategy'])
             f.write("\nImputer: %s"% imputer)
             imputer.fit(X_train)
-            X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
+            #X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col)
+            X_train = pd.DataFrame(imputer.transform(X_train), columns = X_col, index=X_train.index)
             y_train.reset_index(drop=True, inplace=True)
             imputing_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_imputer.joblib")
             joblib.dump(imputer, imputing_name)
             # Impute the test set
-            X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col)
+            #X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col)
+            X_test = pd.DataFrame(imputer.transform(X_test), columns = X_col, index=X_test.index)
             y_test.reset_index(drop=True, inplace=True)
 
         # Scaling if chosen
@@ -1918,7 +1922,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
             scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
             joblib.dump(scaler, scale_name)
             # scale the test set
-            X_test[numeric_cols] = scaler.transform(X_test[numeric_cols])
+            X_test.loc[:, numeric_cols] = scaler.transform(X_test[numeric_cols])
             y_test.reset_index(drop=True, inplace=True)
     
         if options['Normalize'] == 'True':  
@@ -1927,12 +1931,13 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
             from sklearn.preprocessing import Normalizer
             normalizer = Normalizer().fit(X_train[numeric_cols])
             f.write("\nNormalizer: %s"% normalizer)
-            X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
+            #X_train[numeric_cols] = normalizer.transform(X_train[numeric_cols])
+            X_train.loc[:, numeric_cols] = normalizer.transform(X_train[numeric_cols])
             y_train.reset_index(drop=True, inplace=True)
             normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
             joblib.dump(normalizer, normalize_name)
             # Normalize the test set
-            X_test[numeric_cols] = normalizer.transform(X_test[numeric_cols])
+            X_test.loc[:, numeric_cols] = normalizer.transform(X_test[numeric_cols])
             y_test.reset_index(drop=True, inplace=True)
         
 
@@ -2077,7 +2082,7 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
     algorithm_folder = os.path.join(project_folder, experiment_name)
     os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
     with open(os.path.join(algorithm_folder, "excluded_label_cols_setup.txt"), "w", encoding="utf-8") as file:
-        file.write('Label Columns not included due to too little postive labels:  %s (%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
+        file.write('Label Columns not included due to too little postive labels:  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('Threshold was number of values == 1 is less than 10')
     
     avg_cpu_info = total_cpu_info / len(filtered_label_cols)
@@ -2177,15 +2182,22 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             # Imputing Data if chosen
             if options['Impute'] == "True":
                 #st.write("Impute")
-                imputer = SimpleImputer(strategy = 'mean')
+                # Drop all-NaN columns (cannot be imputed with mean)
+                #all_nan_cols = X_train_fold.columns[X_train_fold.isna().all()].tolist()
+                #if all_nan_cols:
+                    #st.write(f"\nDropped all-NaN columns before imputation: {all_nan_cols}")
+                    #X_train_fold = X_train_fold.drop(columns=all_nan_cols)
+                    #X_test_fold = X_test_fold.drop(columns=all_nan_cols, errors='ignore')
+
+                imputer = SimpleImputer(strategy = options['impute_strategy'])
                 f.write("\nImputer: %s"% imputer)
                 imputer.fit(X_train_fold)
-                X_train_fold = pd.DataFrame(imputer.transform(X_train_fold), columns = X_col)
+                X_train_fold = pd.DataFrame(imputer.transform(X_train_fold), columns = X_col, index=X_train_fold.index)
                 y_train_fold.reset_index(drop=True, inplace=True)
                 #imputing_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_imputer.joblib")
                 #joblib.dump(imputer, imputing_name)
                 # Impute the test set
-                X_test_fold = pd.DataFrame(imputer.transform(X_test_fold), columns = X_col)
+                X_test_fold = pd.DataFrame(imputer.transform(X_test_fold), columns = X_col, index=X_test_fold.index)
                 y_test_fold.reset_index(drop=True, inplace=True)
 
             # Scaling if chosen
@@ -2197,7 +2209,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 #scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
                 #joblib.dump(scaler, scale_name)
                 # scale the test set
-                X_test_fold[numeric_cols] = scaler.transform(X_test_fold[numeric_cols])
+                #X_test_fold[numeric_cols] = scaler.transform(X_test_fold[numeric_cols])
+                X_test_fold.loc[:, numeric_cols] = scaler.transform(X_test_fold[numeric_cols])
                 y_test_fold.reset_index(drop=True, inplace=True)
         
             if options['Normalize'] == 'True':  
@@ -2206,12 +2219,14 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 from sklearn.preprocessing import Normalizer
                 normalizer = Normalizer().fit(X_train_fold[numeric_cols])
                 f.write("\nNormalizer: %s"% normalizer)
-                X_train_fold[numeric_cols] = normalizer.transform(X_train_fold[numeric_cols])
+                #X_train_fold[numeric_cols] = normalizer.transform(X_train_fold[numeric_cols])
+                X_train_fold.loc[:, numeric_cols] = normalizer.transform(X_train_fold[numeric_cols])
                 y_train_fold.reset_index(drop=True, inplace=True)
                 #normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
                 #joblib.dump(normalizer, normalize_name)
                 # Normalize the test set
-                X_test_fold[numeric_cols] = normalizer.transform(X_test_fold[numeric_cols])
+                #X_test_fold[numeric_cols] = normalizer.transform(X_test_fold[numeric_cols])
+                X_test_fold.loc[:, numeric_cols] = normalizer.transform(X_test_fold[numeric_cols])
                 y_test_fold.reset_index(drop=True, inplace=True)
             
 
@@ -2269,8 +2284,12 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             ground_truth_test = metric_dic_test['Ground Truths']
 
             # get the confusion matrix for each fold
-            conf_matrix_train = confusion_matrix(y_train_fold, predictions_train, normalize='true')
-            conf_matrix_test = confusion_matrix(y_test_fold, predictions_test, normalize='true')
+            #conf_matrix_train = confusion_matrix(y_train_fold, predictions_train, normalize='true')
+            #conf_matrix_train = confusion_matrix(y_train_fold, predictions_train)
+            conf_matrix_train = np.array([[metric_dic_train['TN'], metric_dic_train['FP']],[metric_dic_train['FN'], metric_dic_train['TP']]])
+            #conf_matrix_test = confusion_matrix(y_test_fold, predictions_test, normalize='true')
+            #conf_matrix_test = confusion_matrix(y_test_fold, predictions_test)
+            conf_matrix_test = np.array([[metric_dic_test['TN'], metric_dic_test['FP']],[metric_dic_test['FN'], metric_dic_test['TP']]])
 
             if sum_conf_matrix_train is None:
                 sum_conf_matrix_train = conf_matrix_train
@@ -2338,9 +2357,15 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         avg_conf_matrix_train = sum_conf_matrix_train / options['CV']
         avg_conf_matrix_test = sum_conf_matrix_test / options['CV']
 
+        st.write(f"Avg. Conf. Matrix: {avg_conf_matrix_test}")
+
         algo_dictonary[label_col]["Metrics"] = {}
         algo_dictonary[label_col]["Metrics"]["Train"] = metric_dic_train_list
         algo_dictonary[label_col]["Metrics"]["Test"] = metric_dic_test_list
+
+        algo_dictonary[label_col]["ROC_Scores"] = {}
+        algo_dictonary[label_col]["ROC_Scores"]["Train"] = results_array_train
+        algo_dictonary[label_col]["ROC_Scores"]["Test"] = results_array_test
 
         algo_dictonary[label_col]["ROC"] = {}
         algo_dictonary[label_col]["ROC"]["Train"] = image_roc_train
@@ -2351,8 +2376,13 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         algo_dictonary[label_col]["Conf_Matrix"]["Test"] = avg_conf_matrix_test
 
         # save the results in the algo_dictonary
-        #algo_dictonary[label_col]["Ground Truths"]["Train"] = ground_truth_train_list
-        #algo_dictonary[label_col]["Ground Truths"]["Test"] = ground_truth_test_list
+        algo_dictonary[label_col]["Ground Truths"] = {}
+        algo_dictonary[label_col]["Ground Truths"]["Train"] = ground_truth_train_list
+        algo_dictonary[label_col]["Ground Truths"]["Test"] = ground_truth_test_list
+
+        algo_dictonary[label_col]["Probabilities"] = {}
+        algo_dictonary[label_col]["Probabilities"]["Train"] = probas_train_list
+        algo_dictonary[label_col]["Probabilities"]["Test"] = probas_test_list
 
         #algo_dictonary[label_col]["Predictions"]["Train"] = predictions_train_list
         #algo_dictonary[label_col]["Predictions"]["Test"] = predictions_test_list
@@ -2363,7 +2393,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
     algorithm_folder = os.path.join(project_folder, experiment_name)
     os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
     with open(os.path.join(algorithm_folder, "excluded_label_cols_setup.txt"), "w", encoding="utf-8") as file:
-        file.write('Label Columns not included due to too little postive labels:  %s (%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
+        file.write('Label Columns not included due to too little postive labels:  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('Threshold was number of values == 1 is less than 10')
     
     avg_cpu_info = total_cpu_info / len(filtered_label_cols)

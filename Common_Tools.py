@@ -94,6 +94,7 @@ algo_shortnames = {
 options_test_set = { # default options dict
         'oneHotEncode' : "True", 
         'Impute': "True", 
+        'impute_strategy': 'mean',
         'cutMissingRows' : "True",
         "cut threshold": 0.60,
         "inf": 'replace with null',
@@ -121,6 +122,7 @@ options_test_set = { # default options dict
 options_default = { # test set options dict
         'oneHotEncode' : "True", 
         'Impute': "True", 
+        'impute_strategy': 'mean',
         'cutMissingRows' : "True",
         "cut threshold": 0.60,
         "inf": 'replace with null',
@@ -467,14 +469,14 @@ def resize_arrays_to_smallest(arrays):
 
     return resized_arrays
 
-# By default, we should cut rows that have missing series of values (cutMissing), impute the data (Impute), and remove very large data values (removeBig)
+# By default, we should cut rows that have missing series of values (cutMissing), deal with inf values, and remove very large data values (removeBig)
 def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMissingRows='True', threshold=0.75, oneHotEncode='True', inf='replace with null', outliers='None', N=20000, QuantileTransformer='False'):
     if oneHotEncode == 'True':
         print("oneHotEncode")
         # convert all values in categorical columns into strings
         df[categorical_cols] = df[categorical_cols].astype(str)
         # Replace placeholders with proper NaN
-        #df[categorical_cols] = df[categorical_cols].replace( ["nan", "NaN", "None", "NONE", "<NA>", "null", ""], np.nan)
+        df[categorical_cols] = df[categorical_cols].replace( ["nan", "NaN", "None", "NONE", "<NA>", "null", ""], np.nan)
         # One Hot Encode catagorical variables
         from sklearn.preprocessing import OneHotEncoder
         encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
@@ -485,16 +487,6 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
     else:
         encoder = None
         encoded_cols = None
-    
-    '''
-    if Impute == True:
-        print("Impute")
-        # Impute the remaining missing numeric data
-        from sklearn.impute import SimpleImputer
-        imputer = SimpleImputer(strategy = 'mean')
-        imputer.fit(df[numeric_cols])
-        df[numeric_cols] = imputer.transform(df[numeric_cols])
-    '''
         
     if cutMissingRows == 'True':
         print("cutMissingRows")
@@ -502,60 +494,26 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         # computing number of columns
         cols = len(df.axes[1])
         print("Cuttoff", int(threshold * cols))
-        df = df.dropna(thresh=int(threshold * cols))
-
-    #print(df)
+        df = df.dropna(thresh=int(threshold * cols), subset=input_cols)
 
     if inf == 'replace with null':
         print("replace with null")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df = df.replace([np.inf, -np.inf], np.nan)
     elif inf == 'replace with zero':
         print("replace with zero")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], 0, inplace=True)
-
-    #print(df)
+        df = df.replace([np.inf, -np.inf], 0)
 
     if outliers == 'remove rows':
         print("remove rows")
         # Remove rows that have a value greater than N for any column. Default N is 20000
-        for column  in df[numeric_cols]:
-            df = df.drop(df.index[df[column] > N])
+        mask = (df[numeric_cols] > N).any(axis=1)
+        df = df[~mask]
     elif outliers == 'log':
         print("log")
         # Log values that are greater than N for any column. Default N is 20000
-        df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
-
-    #print(df)
-
-    '''
-    if Scaling == True:
-        print("Scaling")
-        # Scaling the input features for a chosen method. Default is MinMaxScaler.
-        if scalingMethod == 'MinMaxScaler': 
-            print("MinMaxScaler")
-            # This estimator scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one.
-            from sklearn.preprocessing import MinMaxScaler
-            scaler = MinMaxScaler()
-        elif scalingMethod == 'RobustScaler':
-            print("RobustScaler")
-            # This Scaler removes the median and scales the data according to the quantile range (defaults to IQR: Interquartile Range). The IQR is the range between the 1st quartile (25th quantile) and the 3rd quartile (75th quantile).
-            from sklearn.preprocessing import RobustScaler
-            scaler = RobustScaler()
-        elif scalingMethod == 'MaxAbsScaler':
-            print("MaxAbsScaler")
-            # Scale each feature by its maximum absolute value.
-            from sklearn.preprocessing import MaxAbsScaler
-            scaler = MaxAbsScaler()
-        elif scalingMethod == 'StandardScaler':
-            print("StandardScaler")
-            # Standardize features by removing the mean and scaling to unit variance.
-            from sklearn.preprocessing import StandardScaler
-            scaler = StandardScaler()
-        scaler.fit(df[numeric_cols])
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
-    '''
+        df[numeric_cols] = df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
         
     if QuantileTransformer == 'True':  
         print("QuantileTransformer")
@@ -565,14 +523,6 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         df[numeric_cols] = qt.transform(df[numeric_cols])
     else:
         qt = None
-    '''   
-    if Normalize == 'True':  
-        print("Normalize")
-        # Normalize the data
-        from sklearn.preprocessing import Normalizer
-        normalizer = Normalizer().fit(df[numeric_cols])
-        df[numeric_cols] = normalizer.transform(df[numeric_cols])
-    '''    
     
     return df, input_cols, encoder, encoded_cols, qt
 
@@ -598,7 +548,7 @@ def preprocess_train_test(df, df_test, input_cols, label_cols, numeric_cols, cat
         cols = len(df_test.axes[1])
         print("Number of Inital Columns", cols)
         print("Cuttoff", int(threshold * cols))
-        df = df.dropna(thresh=int(threshold * cols))
+        df = df.dropna(subset=input_cols, thresh=int(threshold * cols))
         df_test = df_test.dropna(thresh=int(threshold * cols))
         print("Number of Final Columns", len(df_test.axes[1]))
         print("Final Test Data Size", len(df_test))
@@ -606,13 +556,13 @@ def preprocess_train_test(df, df_test, input_cols, label_cols, numeric_cols, cat
     if inf == 'replace with null':
         print("replace with null")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df_test.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df = df.replace([np.inf, -np.inf], np.nan)
+        df_test = df_test.replace([np.inf, -np.inf], np.nan)
     elif inf == 'replace with zero':
         print("replace with zero")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], 0, inplace=True)
-        df_test.replace([np.inf, -np.inf], 0, inplace=True)
+        df = df.replace([np.inf, -np.inf], 0)
+        df_test = df_test.replace([np.inf, -np.inf], 0)
     #print(df)
 
     if outliers == 'remove rows':
@@ -636,15 +586,7 @@ def preprocess_train_test(df, df_test, input_cols, label_cols, numeric_cols, cat
         qt = QuantileTransformer(output_distribution='normal').fit(df[numeric_cols])
         df[numeric_cols] = qt.transform(df[numeric_cols])
         df_test[numeric_cols] = qt.transform(df_test[numeric_cols])
-    '''    
-    if Normalize == 'True':  
-        print("Normalize")
-        # Normalize the data
-        from sklearn.preprocessing import Normalizer
-        normalizer = Normalizer().fit(df[numeric_cols])
-        df[numeric_cols] = normalizer.transform(df[numeric_cols])
-        df_test[numeric_cols] = normalizer.transform(df_test[numeric_cols])
-    '''
+
     return df, df_test, input_cols
 
 # Split data into input and output sets
@@ -679,7 +621,8 @@ def scaling(df, input_cols, label_cols, numeric_cols, categorical_cols, scalingM
             from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
         scaler.fit(df[numeric_cols])
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
+        #df[numeric_cols] = scaler.transform(df[numeric_cols])
+        df.loc[:, numeric_cols] = scaler.transform(df[numeric_cols])
         
         return df, scaler
 
@@ -706,12 +649,19 @@ def rebalance(input_df, label_df, type='RandomUnderSampler', sampling_strategy='
     elif type == 'SMOTE':
         # SMOTE is a technique to up-sample the minority classes while avoiding overfitting.
         from imblearn.over_sampling import SMOTE
-        rebalance = SMOTE(sampling_strategy=sampling_strategy, k_neighbors=k_neighbors)
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = SMOTE(sampling_strategy=sampling_ratio, k_neighbors=k_neighbors)
+            print("We hit here!")
+        else:
+            rebalance = SMOTE(sampling_strategy=sampling_strategy, k_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)    
     elif type == 'ADASYN':
         # Adaptive Synthetic (ADASYN) algorithm. This method is similar to SMOTE but it generates different number of samples depending on an estimate of the local distribution of the class to be oversampled.
         from imblearn.over_sampling import ADASYN
-        rebalance = ADASYN(sampling_strategy=sampling_strategy, n_neighbors=k_neighbors)
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = ADASYN(sampling_strategy=sampling_ratio, n_neighbors=k_neighbors)
+        else:    
+            rebalance = ADASYN(sampling_strategy=sampling_strategy, n_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)                   
     else:
         print("Cannot do")
@@ -1467,8 +1417,8 @@ def get_avg_metric(variable, metrics):
     values_avg = sum(values_list) / len(values_list)
     return values_avg
 
-# get the average metric scores in results_dictonary values
-def get_avg_results_dic(results_dictonary):
+# get the average metric scores in results_dictonary values. override means the saved ROC scores override the calcuated avg. ROC scores if true
+def get_avg_results_dic(results_dictonary, override=False):
 
     results_dictonary_avg = {}
 
@@ -1522,6 +1472,17 @@ def get_avg_results_dic(results_dictonary):
             metric_dic_test['P (Train)'] = get_avg_metric('P', metrics_train)
             metric_dic_test['N (Train)'] = get_avg_metric('N', metrics_train)
 
+            if override==True: # override ROC Scores and their CIs if override = True
+                roc_scores_train = values['ROC_Scores']['Train']
+                roc_scores_test = values['ROC_Scores']['Test']
+
+                metric_dic_test['AUROC Score'] = roc_scores_test[0]
+                metric_dic_test['AUROC CI Low'] = roc_scores_test[1]
+                metric_dic_test['AUROC CI High'] = roc_scores_test[2]
+
+                metric_dic_test['AUROC Score (Train)'] = roc_scores_train[0]
+                metric_dic_test['AUROC CI Low (Train)'] = roc_scores_train[1]
+                metric_dic_test['AUROC CI High (Train)'] = roc_scores_train[2]
 
             results_dictonary_avg[algo][outcome]['evaluation'] = metric_dic_test
 
@@ -1532,6 +1493,7 @@ def get_avg_results_dic(results_dictonary):
             results_dictonary_avg[algo][outcome]['conf_matrix'] = {}
             results_dictonary_avg[algo][outcome]['conf_matrix']['Train'] = values['Conf_Matrix']['Train'].tolist()
             results_dictonary_avg[algo][outcome]['conf_matrix']['Test'] = values['Conf_Matrix']['Test'].tolist()
+            st.write(f"Avg. Conf. Matrix Final: {results_dictonary_avg[algo][outcome]['conf_matrix']['Test']}")
     
     #st.write(results_dictonary_avg)
     return results_dictonary_avg
