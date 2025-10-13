@@ -118,13 +118,21 @@ def plot_roc(data, option):
     st.pyplot(fig, use_container_width=False)
     plt.close()
 
-def plot_and_save_confusion_matrix_rate(data, option):
+def plot_and_save_confusion_matrix_rate(results_table, option):
     rest, test_type = option.rsplit('-', 1)
     rest, outcome = rest.rsplit('-', 1)
     rest, algo = rest.rsplit('-', 1)
     exp_name, test_set = rest.rsplit('-', 1)
 
-    avg_conf_matrix = data[exp_name][test_set][algo][outcome]['conf_matrix'][test_type] # get the shap image
+    #avg_conf_matrix = data[exp_name][test_set][algo][outcome]['conf_matrix'][test_type] # get the shap image
+    relvant_row = results_table[(results_table["Exp_Name"] == exp_name) & (results_table["Outcome"] == outcome) & (results_table["Algorithm"] == algo) & (results_table["Test Set"] == test_set)]
+    st.write(relvant_row)
+    tp = float(relvant_row['TP'])
+    fp = float(relvant_row['FP'])
+    tn = float(relvant_row['TN'])
+    fn = float(relvant_row['FN'])
+    avg_conf_matrix = [[tn, fp], [fn, tp]]
+    #st.write(avg_conf_matrix)
 
     fig, ax = plt.subplots(figsize=(8, 6))
     plt.imshow(avg_conf_matrix, cmap=plt.cm.Blues)
@@ -405,16 +413,10 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
             #if f'{exp}-{test}-{algo}-{outcome}-{test_type}' not in st.session_state.outcome_options:
                 #st.session_state.outcome_options.append(f'{exp}-{test}-{algo}-{outcome}-{test_type}')
 
-            st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC curve")
-            plot_and_save_confusion_matrix_rate(st.session_state.outcome_dic_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}') # gives the confusion matrix based on rates (TPR, FPR, etc.)
+            if test_type == "Test":
+                st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC curve")
+                plot_and_save_confusion_matrix_rate(st.session_state.df_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}') # gives the confusion matrix based on rates (TPR, FPR, etc.)
 
     # button to reset the table
     #if st.button('Clear All Plots'):
         #st.session_state.outcome_options = []
-
-
-    # Select multiple outcomes for the ROC curve plot
-    #st.write(st.session_state.outcome_options)
-
-    #if st.session_state.outcome_options:
-        #plot_roc(st.session_state.outcome_dic_total, st.session_state.outcome_options)

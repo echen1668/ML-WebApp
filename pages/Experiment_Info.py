@@ -31,11 +31,80 @@ import datetime
 import pprint
 import pymongo
 from pymongo import MongoClient
-
+import bisect
 # import module
 import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 from Common_Tools import upload_data
+
+# sort exp_names by time_created
+def sort_exp_name_by_time(exp_names, sort_method):
+        sorted_exp_with_time = [] # initalize sorted list
+        for exp_name in exp_names:
+            # get model
+            model = models.find_one({"exp_name": exp_name})
+            if model==None: # for the CV types
+                model = results.find_one({"exp_name": exp_name})
+
+            # get the time created
+            try:
+                time_created = model['time_created']
+            except:
+                time_created = 'N/A'
+            sorted_exp_with_time.append((exp_name, time_created))
+
+        # Separate valid times from 'N/A'
+        valid_times = [x for x in sorted_exp_with_time if x[1] != 'N/A']
+        na_times = [x for x in sorted_exp_with_time if x[1] == 'N/A']
+
+        if sort_method == 'Time (Earliest)':
+            # Sort by time_created from earliest to latest
+            valid_times = sorted(valid_times, key=lambda x: x[1])
+        else:
+            # sort time_created from latest to earliest
+            valid_times = sorted(valid_times, key=lambda x: x[1], reverse=True)
+
+        # Combine valid times with 'N/A' at the end
+        sorted_exp_with_time = valid_times + na_times
+
+        # Extract only the sorted exp_names
+        sorted_exp_names = [exp[0] for exp in sorted_exp_with_time]
+        #st.write(sorted_exp_names)
+        return sorted_exp_names
+
+# sort data_names by time_created
+def sort_data_name_by_time(data_names, sort_method):
+        sorted_data_names_with_time = [] # initalize sorted list
+        for data_name in data_names:
+            # get dataset
+            dataset = datasets.find_one({"data_name": data_name})
+            # get the dataset info
+            try:
+                time_saved = dataset['time_saved']
+            except:
+                time_saved = 'N/A'
+
+            sorted_data_names_with_time.append((data_name, time_saved))
+
+        # Separate valid times from 'N/A'
+        valid_times = [x for x in sorted_data_names_with_time if x[1] != 'N/A']
+        na_times = [x for x in sorted_data_names_with_time if x[1] == 'N/A']
+
+        if sort_method == 'Time (Earliest)':
+            # Sort by time_created from earliest to latest
+            valid_times = sorted(valid_times, key=lambda x: x[1])
+        else:
+            # sort time_created from latest to earliest
+            valid_times = sorted(valid_times, key=lambda x: x[1], reverse=True)
+
+        # Combine valid times with 'N/A' at the end
+        sorted_data_names_with_time = valid_times + na_times
+
+        # Extract only the sorted data_names
+        sorted_data_names = [x[0] for x in sorted_data_names_with_time]
+        #st.write(sorted_data_names)
+        return sorted_data_names
+
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -98,6 +167,8 @@ datasets = db.datasets
 exp_names_results = db.results.distinct("exp_name")
 # get all unique exp. names from models collection
 exp_names_models = db.models.distinct("exp_name")
+# get all unique exp. names from models collection
+time_created_models = db.models.distinct("time_created")
 # get all unique exp. name from both model and results collection
 exp_names = list(set(exp_names_models + exp_names_results))
 exp_names.sort()
@@ -118,11 +189,17 @@ experiments.subheader("📋 All Experiments")
 experiments.write("View all experiments stored in the database and view their infromation.")
 
 # Dropdown to select the sorting method
-#sort_method = experiments.selectbox("Sort By:", ['None', 'Alphabetically', 'Time'])
+sort_method_exp = experiments.selectbox("Sort Exp. Names By:", ['None', 'Alphabetically', 'Time (Latest)', 'Time (Earliest)'])
 
 # Search bar to filter list by substring
 search_substring = experiments.text_input("**Search**", help="Search for specific ML experiment by name.")
 filtered_exp_names = [s for s in exp_names if search_substring in s]
+
+if sort_method_exp == 'Alphabetically':
+    filtered_exp_names = sorted(filtered_exp_names)
+elif sort_method_exp in ['Time (Latest)', 'Time (Earliest)']:
+    filtered_exp_names = sort_exp_name_by_time(filtered_exp_names, sort_method_exp)
+
 #experiments.write(filtered_exp_names)
 
 # Dropdown to select the type filter
@@ -229,9 +306,17 @@ for exp_name in filtered_exp_names:
 datasetlist.subheader("📋 All Datasets")
 datasetlist.write("View all datasets saved in the database and view their infromation.")
 
+# Dropdown to select the sorting method
+sort_method_data = datasetlist.selectbox("Sort Data Names By:", ['None', 'Alphabetically', 'Time (Latest)', 'Time (Earliest)'])
+
 # Search bar to filter list by substring
 search_substring = datasetlist.text_input("**Search**", help="Search for specific dataset by name.")
 filtered_data_names = [s for s in data_names if search_substring in s]
+
+if sort_method_data == 'Alphabetically':
+    filtered_data_names = sorted(filtered_data_names)
+elif sort_method_data in ['Time (Latest)', 'Time (Earliest)']:
+    filtered_data_names = sort_data_name_by_time(filtered_data_names, sort_method_data)
 
 # Dropdown to select the type filter
 filter_type = datasetlist.selectbox("**Select a type**", ['All', 'Train', 'Test'], help="Search a specific type of saved dataset.")

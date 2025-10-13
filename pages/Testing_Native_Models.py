@@ -112,6 +112,9 @@ def find_option_dic(configuration, project_name, algorithm):
             return main_dic[key]["options"]
 
 def preprocessdata(df, input_columns, numeric_cols, cutMissingRows='True', threshold=0.75, inf='replace with null', outliers='None', N=20000):
+    # Work on a copy to avoid SettingWithCopyWarning
+    df = df.copy()
+    
     if cutMissingRows == 'True':
         print("cutMissingRows")
         # Drop rows with too many missing values
@@ -125,21 +128,27 @@ def preprocessdata(df, input_columns, numeric_cols, cutMissingRows='True', thres
     if inf == 'replace with null':
         print("replace with null")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df = df.replace([np.inf, -np.inf], np.nan)
     elif inf == 'replace with zero':
         print("replace with zero")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], 0, inplace=True)
+        df = df.replace([np.inf, -np.inf], 0)
 
+    # Outlier handling
     if outliers == 'remove rows':
         print("remove rows")
         # Remove rows that have a value greater than N for any column. Default N is 20000
-        for column  in df[numeric_cols]:
-            df = df.drop(df.index[df[column] > N])
+        mask = (df[numeric_cols] > N).any(axis=1)
+        df = df.loc[~mask]
     elif outliers == 'log':
         print("log")
         # Log values that are greater than N for any column. Default N is 20000
-        df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
+        df.loc[:, numeric_cols] = df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
+        
+    # Enforce numeric dtypes for safety
+    df.loc[:, numeric_cols] = df[numeric_cols].apply(
+        pd.to_numeric, errors="coerce"
+    )
 
     return df
 
@@ -212,7 +221,13 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                         ["nan", "NaN", "None", "NONE", "<NA>", "null", ""], np.nan
                     )
 
-                    test_data[encoded_cols] = encoder.transform(test_data[categorical_columns])
+                    #test_data[encoded_cols] = encoder.transform(test_data[categorical_columns])
+                    encoded = pd.DataFrame(
+                        encoder.transform(test_data[categorical_columns]),
+                        columns=encoded_cols,
+                        index=test_data.index
+                    )
+                    test_data = test_data.drop(columns=categorical_columns).join(encoded)
 
                 # preprocess the testing data
                 test_data = preprocessdata(test_data, input_columns, numeric_columns, cutMissingRows=options['cutMissingRows'], threshold=options['cut threshold'], inf=options['inf'], outliers=options['outliers'], N=options['outliers_N'])
@@ -265,7 +280,8 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                     print("Scaling")
                     scaler = outcome_dic['Scaler']
                     f.write("\nScaler: %s"% scaler)
-                    X_test[numeric_columns] = scaler.transform(X_test[numeric_columns])
+                    #X_test[numeric_columns] = scaler.transform(X_test[numeric_columns])
+                    X_test.loc[:, numeric_columns] = scaler.transform(X_test[numeric_columns])
                     y_test.reset_index(drop=True, inplace=True)
 
                 # Normalize the data
@@ -273,7 +289,8 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                     print("Normalize")
                     normalizer = outcome_dic['Normalizer']
                     f.write("\nNormalizer: %s"% normalizer)
-                    X_test[numeric_columns] = normalizer.transform(X_test[numeric_columns])
+                    #X_test[numeric_columns] = normalizer.transform(X_test[numeric_columns])
+                    X_test.loc[:, numeric_columns] = normalizer.transform(X_test[numeric_columns])
                     y_test.reset_index(drop=True, inplace=True)
 
 

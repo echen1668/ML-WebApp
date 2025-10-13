@@ -197,7 +197,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
         #test_sets = data_sets["Testing Set"]
 
         # save the data sets
-        save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
+        #save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
         save_data(index_set['Name'], index_set['Data'], os.path.join(project_folder, index_set['Name']))
 
         if train_set['Name'] not in data_names_train:
@@ -271,7 +271,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
             # refine the training set before model training
             df_train_refined, input_cols, label_cols, encoder, encoded_cols, qt = data_prep(df_train, input_cols, label_cols, numeric_cols, categorical_cols, options)
-
+            #st.write(df_train_refined)
             # save any preprocessing steps
             algorithm_folder = os.path.join(project_folder, experiment_name)
             os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm preprocessing steps
@@ -343,7 +343,7 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
             training_type = "Native" if st.session_state.training_method=="Train/Test Split" else "Native-CV"
 
-            final_results_dic = get_avg_results_dic(results_dictonary) if st.session_state.training_method=="Cross-Validation" else results_dictonary
+            final_results_dic = get_avg_results_dic(results_dictonary, override=True) if st.session_state.training_method=="Cross-Validation" else results_dictonary
 
             path_name = os.path.join(results_folder, f"{project_name}_results.joblib")
             joblib.dump(final_results_dic, path_name)
@@ -665,11 +665,16 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         ['Random Forest', 'XGBoost', 'Cat Boost', "SGD Elastic", "SGD L2", "Logistic Reg.", "Logistic Reg. L2", "Descision Tree", "SVM", "KNearest N."]
     )
 
-    unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a input variable to be consired catagorical:", min_value=1, max_value=100, value=10)
+    unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a numerical input variable to be consired catagorical:", min_value=1, max_value=100, value=10)
 
     with st.expander("▶️ Data Preprocessing Options"):
         oneHotEncode = st.radio("One-Hot Encode Categorical Features?", ("True", "False"), horizontal=True)
         impute = st.radio("Impute Missing Values?", ("True", "False"), horizontal=True)
+        if impute=="True":
+            impute_strategy = st.selectbox("Imputing Strategy", ['mean', 'median', 'most_frequent', 'constant'])
+        else:
+            impute_strategy = "None"
+
         inf_handling = st.radio("Handle Infinite Values By:", ('replace with null', 'replace with zero'), horizontal=True)
         
         st.subheader("Handle Outliers")
@@ -734,7 +739,7 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         min_postives = st.number_input("Minimum Positive Cases for an Outcome", min_value=1, value=10)
 
         if st.session_state.training_method != "Train Whole Set":
-            test_size = st.number_input("Enter the size of the test set (% of the data set set aside for testing):", min_value=0.0, max_value=1.0, value=0.2)
+            test_size = st.number_input("(for Train/Test Split Only) Enter the size of the test set (% of the data set set aside for testing):", min_value=0.0, max_value=1.0, value=0.2)
             threshold_type = st.selectbox("Optimal Cutoff Threshold Method", ['youden', 'mcc', 'ji', 'f1'])
         else:
             test_size = 0
@@ -743,6 +748,7 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
     options = {
         'oneHotEncode' : oneHotEncode, 
         'Impute': impute, 
+        'impute_strategy': impute_strategy,
         'cutMissingRows' : cutMissingRows,
         "cut threshold": cut_threshold,
         "inf": inf_handling,

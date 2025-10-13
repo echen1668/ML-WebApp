@@ -235,7 +235,7 @@ def plot_confusion_matrix(data, option_cms):
     plt.close()
 
 
-def plot_shap(data, options):
+def plot_feature_importance(data, options):
 
     # Dropdown to select the exp to plot shap values with
     option = st.selectbox("Select an experiment", options)
@@ -251,22 +251,29 @@ def plot_shap(data, options):
     # the abs value of feature importance values
     df_feature_importance['importance (abs)'] = df_feature_importance['importance'].abs()
 
+    # get the names of the top 10 most important features
+    top_features = df_feature_importance['feature'].head(10).tolist()
+    top_importances = df_feature_importance['importance (abs)'].head(10).tolist()
+
     # plot the 10 top most important features
-    fig = plt.figure(figsize=(6, 6))
-    ax = df_feature_importance['importance (abs)'][:10].plot(kind='bar')
-    plt.title(f'Feature Importance for {outcome} on {exp_name} (Top 10)', fontsize=8)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    #ax = df_feature_importance['importance (abs)'][:10].plot(kind='bar')
+    ax.bar(top_features, top_importances, color='skyblue')
+    ax.set_title(f'Feature Importance for {outcome} on {exp_name} (Top 10)', fontsize=8)
+    ax.set_ylabel('Importance (abs)', fontsize=7)
+    ax.set_xlabel('Feature', fontsize=7)
 
     # Add text labels
-    for i, v in enumerate(df_feature_importance['importance (abs)'][:10]):
+    for i, v in enumerate(top_importances):
         ax.text(i, v + 0.0005, f'{v:.3f}', ha='center')
 
     # Set y-axis range from 0 to 1
-    ax.set_ylim(0, df_feature_importance['importance (abs)'][0] + 0.01)
+    ax.set_ylim(0, max(top_importances) + 0.01)
 
     
         
     # Adjust x-axis labels for readability
-    plt.xticks(rotation=45, ha='right', fontsize=8)  # Rotate and align right
+    plt.xticks(top_features, rotation=45, ha='right', fontsize=8)  # Rotate and align right
     plt.yticks(fontsize=8)
 
     st.pyplot(fig, use_container_width=False)    # Use Streamlit's function to display the plot
@@ -531,4 +538,4 @@ if st.session_state.outcome_options and st.session_state.outcome_dic_total:
 st.title("Feature Importance Analysis", help="View the Feature Importance chart for each ROC curve.")
         
 if st.session_state.outcome_options and st.session_state.outcome_dic_total:
-    plot_shap(st.session_state.outcome_dic_total, st.session_state.outcome_options)
+    plot_feature_importance(st.session_state.outcome_dic_total, st.session_state.outcome_options)

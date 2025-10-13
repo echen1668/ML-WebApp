@@ -248,9 +248,11 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
         with st.spinner(f"Model Testing for {outcome} is Done. Now getting the Feature Importance..."):    
             print("Feature Importance....")
             f.write("Feature Importance....")
+            original_features = model.features(feature_stage='original')
+            #st.write(f'Aviable features: {original_features}')
             # Get feature importance
-            feature_importance_df = model.feature_importance(test_data, time_limit=500)
-
+            feature_importance_df = model.feature_importance(test_data, features=original_features, time_limit=500)
+            feature_importance_df = feature_importance_df.reset_index(names='feature')
             print("Feature Importance Array: ",feature_importance_df)
 
             f.write("\nFeature Importance Array: %s"% feature_importance_df)
@@ -258,7 +260,14 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
             # Sort by importance
             feature_importance_df_sorted = feature_importance_df.sort_values('importance', ascending=False)
             print(feature_importance_df_sorted)
+            st.dataframe(feature_importance_df_sorted)
             feature_importance_dic[outcome] = feature_importance_df_sorted
+
+            # Get top 10 most important feature names
+            top_features = feature_importance_df_sorted['feature'].head(10).tolist()
+            #all_features = feature_importance_df_sorted['feature'].tolist()
+            st.write(f"Top 10 important features: {top_features}")
+            f.write("\nTop 10 important features: %s" % top_features)
 
             #except:
             #    st.error(f"Unable to make the feature importance table for {outcome}.")
@@ -271,6 +280,7 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
             results_dictonary[outcome]['leaderboard'] = model.leaderboard(test_data).to_dict(orient='records')
             try:
                 results_dictonary[outcome]['feature importance'] = feature_importance_df_sorted.to_dict(orient='records')
+                #results_dictonary[outcome]['top features'] = all_features
             except:
                 st.error(f"Unable to make the feature importance table for {outcome}.")
 
