@@ -805,6 +805,10 @@ def upload_data(filename):
     else:
         print('.csv')
         raw_df = pd.read_csv(filename)
+
+    if 'Unnamed: 0' in raw_df.columns: # remove Unnamed: 0 if it exists
+        raw_df = raw_df.drop(columns=['Unnamed: 0'])
+
     return raw_df.copy()
 
 def load_data(filename, data):
@@ -815,15 +819,17 @@ def load_data(filename, data):
     else:
         df = pd.read_excel(data)
 
+    if 'Unnamed: 0' in df.columns: # remove Unnamed: 0 if it exists
+        df = df.drop(columns=['Unnamed: 0'])
     return df
 
 def save_data(filename, data, save_path):
     if filename.endswith('.xlsx'):
-        data.to_excel(save_path)
+        data.to_excel(save_path, index=False)
     elif filename.endswith('.csv'):
-        data.to_csv(save_path)
+        data.to_csv(save_path, index=False)
     else:
-        data.to_csv(save_path)
+        data.to_csv(save_path, index=False)
 
 
 
@@ -1394,6 +1400,13 @@ def generate_results_table(results_dictonary):
                       'AUROC CI Upper (Train)': outcomes[outcome]['evaluation']['AUROC CI High (Train)'],
                       'P (Train)': outcomes[outcome]['evaluation']['P (Train)'],
                       'N (Train)': outcomes[outcome]['evaluation']['N (Train)']}
+            
+            # Optionally add training confusion matrix values if available
+            train_metrics = ['TP (Train)', 'FP (Train)', 'TN (Train)', 'FN (Train)']
+
+            for metric in train_metrics: # add training confusion matrix numbers if they exist
+                if metric in list(outcomes[outcome]['evaluation'].keys()):
+                    new_row[metric] = outcomes[outcome]['evaluation'][metric]
 
             # add new row
             rows.append(new_row)
@@ -1471,6 +1484,11 @@ def get_avg_results_dic(results_dictonary, override=False):
 
             metric_dic_test['P (Train)'] = get_avg_metric('P', metrics_train)
             metric_dic_test['N (Train)'] = get_avg_metric('N', metrics_train)
+            
+            metric_dic_test['TP (Train)'] = get_avg_metric('TP', metrics_train)
+            metric_dic_test['FP (Train)'] = get_avg_metric('FP', metrics_train)
+            metric_dic_test['TN (Train)'] = get_avg_metric('TN', metrics_train)
+            metric_dic_test['FN (Train)'] = get_avg_metric('FN', metrics_train)
 
             if override==True: # override ROC Scores and their CIs if override = True
                 roc_scores_train = values['ROC_Scores']['Train']
