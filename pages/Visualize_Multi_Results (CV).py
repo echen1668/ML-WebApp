@@ -127,10 +127,10 @@ def plot_and_save_confusion_matrix_rate(results_table, option):
     #avg_conf_matrix = data[exp_name][test_set][algo][outcome]['conf_matrix'][test_type] # get the shap image
     relvant_row = results_table[(results_table["Exp_Name"] == exp_name) & (results_table["Outcome"] == outcome) & (results_table["Algorithm"] == algo) & (results_table["Test Set"] == test_set)]
     st.write(relvant_row)
-    tp = float(relvant_row['TP'])
-    fp = float(relvant_row['FP'])
-    tn = float(relvant_row['TN'])
-    fn = float(relvant_row['FN'])
+    tp = float(relvant_row['TP']) if test_type == 'Test' else float(relvant_row['TP (Train)'])
+    fp = float(relvant_row['FP']) if test_type == 'Test' else float(relvant_row['FP (Train)'])
+    tn = float(relvant_row['TN']) if test_type == 'Test' else float(relvant_row['TN (Train)'])
+    fn = float(relvant_row['FN']) if test_type == 'Test' else float(relvant_row['FN (Train)'])
     avg_conf_matrix = [[tn, fp], [fn, tp]]
     #st.write(avg_conf_matrix)
 
@@ -413,9 +413,8 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
             #if f'{exp}-{test}-{algo}-{outcome}-{test_type}' not in st.session_state.outcome_options:
                 #st.session_state.outcome_options.append(f'{exp}-{test}-{algo}-{outcome}-{test_type}')
 
-            if test_type == "Test":
-                st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC curve")
-                plot_and_save_confusion_matrix_rate(st.session_state.df_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}') # gives the confusion matrix based on rates (TPR, FPR, etc.)
+            st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC curve")
+            plot_and_save_confusion_matrix_rate(st.session_state.df_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}') # gives the confusion matrix based on rates (TPR, FPR, etc.)
 
     # button to reset the table
     #if st.button('Clear All Plots'):

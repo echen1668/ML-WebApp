@@ -170,8 +170,9 @@ results = db.results
 datasets = db.datasets
 
 # get all unique exp. names from results collection
-#exp_names = db.models.distinct("exp_name", {"type": "Native"})
-exp_names = db.models.distinct("exp_name")
+exp_names_n = db.models.distinct("exp_name")
+exp_names_cv = db.results.distinct("exp_name", {"type": "Native-CV"})
+exp_names = exp_names_n + exp_names_cv
 
 # get all training data names from database
 data_names_train = db.datasets.distinct("data_name", {"type": "Train"})
@@ -572,14 +573,14 @@ if data_options == "Upload a dataset" and main_uploaded_file:
 
     df_train = load_data(train_set, main_uploaded_file)
 
-    #st.write(df_train.head())  # Display the first few rows
+    st.write(df_train)  # Display the first few rows
 
     data_sets["Training Set"] = {}
     data_sets["Training Set"]["Name"] = main_uploaded_file.name
     data_sets["Training Set"]["Data"] = df_train
 elif data_name_train:
     df_train = upload_data(os.path.join("Data Sets",data_name_train))
-    #st.write(df_train.head())  # Display the first few rows
+    st.write(df_train)  # Display the first few rows
     data_sets["Training Set"] = {}
     data_sets["Training Set"]["Name"] = data_name_train
     data_sets["Training Set"]["Data"] = df_train

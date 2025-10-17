@@ -169,6 +169,15 @@ if st.session_state.show_dataset:
         st.session_state.show_dataset = False  # Reset state to hide dataset
         st.rerun()  # Refresh the page to update UI
 
+# --- Keep specific features ---
+st.header("Keep specific features")
+if df_train is not None:
+    if st.session_state.df_train.empty == True or (not(set(st.session_state.df_train.columns).issubset(df_train.columns)) and (len(st.session_state.df_train) != len(df_train))):
+        train_col = list(df_train.columns)
+    else:
+        train_col = list(st.session_state.df_train.columns)
+    cols_to_keep = st.multiselect("Select a set of features that will be kept even if you choose to perform other column removal methods", train_col)
+
 # --- Remove specific features ---
 st.header("Remove specific features")
 if df_train is not None:
@@ -176,6 +185,9 @@ if df_train is not None:
         train_col = list(df_train.columns)
     else:
         train_col = list(st.session_state.df_train.columns)
+
+    train_col = [col for col in train_col if col not in cols_to_keep] # perform set-like subtraction so that user can't remove columns that they chose to keep
+
     cols_to_remove = st.multiselect("Select a set of features to remove", train_col)
 
 if df_train is not None and st.button('Remove Features'):
@@ -208,7 +220,9 @@ if df_train is not None and st.button('Remove Missing Values'):
     #try:
     if st.session_state.df_train.empty == True or (not(set(st.session_state.df_train.columns).issubset(df_train.columns)) and (len(st.session_state.df_train) != len(df_train))):
         df_train_old = df_train.copy()
-        df_train = df_train.dropna(axis=1, thresh=min_threshold)
+        #df_train = df_train.dropna(axis=1, thresh=min_threshold)
+        cols_to_drop = [col for col in df_train.columns if col not in cols_to_keep and df_train[col].count() < min_threshold] # Compute which columns to drop (excluding the ones you want to keep)
+        df_train = df_train.drop(columns=cols_to_drop) # Drop those columns
         new_cols = list(df_train.columns)
         st.session_state.df_train = df_train
 
@@ -216,7 +230,9 @@ if df_train is not None and st.button('Remove Missing Values'):
         removed_cols = list(set(df_train_old.columns) - set(df_train.columns))
     else:
         df_train_old = st.session_state.df_train.copy()
-        st.session_state.df_train = st.session_state.df_train.dropna(axis=1, thresh=min_threshold)
+        #st.session_state.df_train = st.session_state.df_train.dropna(axis=1, thresh=min_threshold)
+        cols_to_drop = [col for col in st.session_state.df_train.columns if col not in cols_to_keep and st.session_state.df_train[col].count() < min_threshold] # Compute which columns to drop (excluding the ones you want to keep)
+        st.session_state.df_train = st.session_state.df_train.drop(columns=cols_to_drop) # Drop those columns
         new_cols = list(st.session_state.df_train.columns)
 
          # get all rows that are removed
@@ -259,6 +275,7 @@ if df_train is not None and st.button('Remove HC features'):
     with st.spinner("Removing Highly Correlated Features..."):
         # Pass DataFrame and Threshold value 
         _, selected_columns, removed_columns = remove_highly_correlated_features(numeric_df_train,corr_threshold)
+        removed_columns = [col for col in removed_columns if col not in cols_to_keep] # perform set-like subtraction so that user can't remove columns that they chose to keep
         st.write("Removed Features: ", list(removed_columns))
         if st.session_state.df_train.empty == True or (not(set(st.session_state.df_train.columns).issubset(df_train.columns)) and (len(st.session_state.df_train) != len(df_train))):
             df_train.drop(columns=removed_columns, inplace=True)
@@ -299,6 +316,7 @@ if df_train is not None and st.button('Remove LV features'):
 
     # remove the columns
     columns_to_remove = list(numeric_df_train.columns[(np.nanstd(numeric_df_train, axis=0) < var_threshold)])
+    columns_to_remove = [col for col in columns_to_remove if col not in cols_to_keep] # perform set-like subtraction so that user can't remove columns that they chose to keep
     st.write("Removed Features: ", columns_to_remove)
     if st.session_state.df_train.empty == True or (not(set(st.session_state.df_train.columns).issubset(df_train.columns)) and (len(st.session_state.df_train) != len(df_train))):
         df_train.drop(columns=columns_to_remove, inplace=True)
