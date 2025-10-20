@@ -358,9 +358,9 @@ else:
 if df_train is not None and st.button("Save dataset(s)"):
 
     if train_set.endswith('.xlsx'):
-        train_set_name = train_set_name + ".xlsx"
+        train_set_name_full = train_set_name + ".xlsx"
     elif train_set.endswith('.csv'):
-        train_set_name = train_set_name + ".csv"
+        train_set_name_full = train_set_name + ".csv"
 
     # save the training set
     # get the current time
@@ -379,20 +379,20 @@ if df_train is not None and st.button("Save dataset(s)"):
 
     # save train set into data folder and database
     os.makedirs("Data Sets", exist_ok=True)
-    save_data(train_set_name, saved_train_set, os.path.join("Data Sets", train_set_name))
+    save_data(train_set_name_full, saved_train_set, os.path.join("Data Sets", train_set_name_full))
     dataset_train = {
-            "data_name": train_set_name,
+            "data_name": train_set_name_full,
             "type": "Train",
             "time_saved": current_time,
-            "data_path": os.path.join("Data Sets", train_set_name),
+            "data_path": os.path.join("Data Sets", train_set_name_full),
             "exps used": []
     }
-    if train_set_name not in data_names:
+    if train_set_name_full not in data_names:
         datasets.insert_one(dataset_train)
-        st.success(f"Training Dataset {train_set_name} is saved in the database", icon="ℹ️")
+        st.success(f"Training Dataset {train_set_name_full} is saved in the database", icon="ℹ️")
     else:
-        datasets.replace_one({"data_name": train_set_name}, dataset_train)
-        st.info(f"Training Dataset {train_set_name} of the same name is overwritten in the database", icon="ℹ️")
+        datasets.replace_one({"data_name": train_set_name_full}, dataset_train)
+        st.info(f"Training Dataset {train_set_name_full} of the same name is overwritten in the database", icon="ℹ️")
 
     # save the testing set
     if df_test is not None:
@@ -402,9 +402,9 @@ if df_train is not None and st.button("Save dataset(s)"):
         current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if test_set.endswith('.xlsx'):
-            test_set_name = train_set_name + ".xlsx"
+            test_set_name_full = test_set_name + ".xlsx"
         elif test_set.endswith('.csv'):
-            test_set_name = train_set_name + ".csv"
+            test_set_name_full = test_set_name + ".csv"
 
         # get the most updated data set
         if st.session_state.df_test.empty == True or (not(set(st.session_state.df_test.columns).issubset(df_test.columns)) and (len(st.session_state.df_test) != len(df_test))):
@@ -414,18 +414,18 @@ if df_train is not None and st.button("Save dataset(s)"):
 
         # save train set into data folder and database
         os.makedirs("Data Sets", exist_ok=True)
-        save_data(test_set_name, saved_test_set, os.path.join("Data Sets", test_set_name))
+        save_data(test_set_name_full, saved_test_set, os.path.join("Data Sets", test_set_name_full))
         dataset_test = {
-                "data_name": test_set_name,
+                "data_name": test_set_name_full,
                 "type": "Test",
                 "time_saved": current_time,
-                "data_path": os.path.join("Data Sets", test_set_name),
+                "data_path": os.path.join("Data Sets", test_set_name_full),
                 "exps used": []
         }
 
-        if test_set_name not in data_names:
+        if test_set_name_full not in data_names:
             datasets.insert_one(dataset_test)
-            st.success(f"Testing Dataset {test_set_name} is saved in the database", icon="ℹ️")
+            st.success(f"Testing Dataset {test_set_name_full} is saved in the database", icon="ℹ️")
         else:
-            datasets.replace_one({"data_name": test_set_name}, dataset_test)
-            st.info(f"Testing Dataset {test_set_name} of the same name is overwritten in the database", icon="ℹ️")
+            datasets.replace_one({"data_name": test_set_name_full}, dataset_test)
+            st.info(f"Testing Dataset {test_set_name_full} of the same name is overwritten in the database", icon="ℹ️")
