@@ -96,3 +96,7 @@ st.subheader("🔧 Manage Experiments, Results, and Datasets")
 st.write("User can go to this section to delete or rename old models/experiments, old results, and saved datasets in which they have to select it.")
 st.divider()
 
+st.subheader("📝 Data Preprocessing and Engineering")
+st.write("User can go to this section to upload a dataset, perfrom data enginerring steps on it, and then save it into the database.")
+st.divider()
+
