@@ -130,7 +130,7 @@ def get_classifier(alg, param_vals="None"):
     est_rs = 1000
     if alg == 'rf':
         from sklearn.ensemble import RandomForestClassifier
-        estimator = RandomForestClassifier(random_state=est_rs)
+        estimator = RandomForestClassifier(random_state=est_rs, bootstrap=True, oob_score=True)
         if param_vals == 'None':
             param_vals = {'max_depth': list(np.arange(2, 14, 1)),
                           'n_estimators': list(np.arange(5, 80, 5)),
@@ -2171,6 +2171,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             estimator, param_vals = get_classifier(algorithm, param_vals_raw)
 
             print(fold)
+            #st.write(f'Fold: {fold}')
             f.write("\nFold: %s"%fold)
 
             #split training data into train and test sets
@@ -2264,6 +2265,19 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             probas_train = estimator.predict_proba(X_train_fold) # get probablities with train set
             probas_test = estimator.predict_proba(X_test_fold) # get probablities with test set
 
+            train_size = len(X_train_fold)
+            label_train_counts = y_train_fold.value_counts()
+            #st.write(f'Train Size: {train_size}')
+            #st.write(f'Train Counts: {label_train_counts}')
+            f.write(f'Train Size: {train_size}')
+            f.write(f'Train Counts: {label_train_counts}')
+
+            test_size = len(X_test_fold)
+            label_test_counts = y_test_fold.value_counts()
+            #st.write(f'Test Size: {test_size}')
+            #st.write(f'Test Counts: {label_test_counts}')
+            f.write(f'Test Size: {test_size}')
+            f.write(f'Test Counts: {label_test_counts}')
 
             metric_dic_train, _ = test_and_save_results(estimator, X_train_fold, y_train_fold, threshold_type, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
             metric_dic_test, _ = test_and_save_results(estimator, X_test_fold, y_test_fold, threshold_type, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
@@ -2393,8 +2407,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
     algorithm_folder = os.path.join(project_folder, experiment_name)
     os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
     with open(os.path.join(algorithm_folder, "excluded_label_cols_setup.txt"), "w", encoding="utf-8") as file:
-        file.write('Label Columns not included due to too little postive labels:  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
-        file.write('Threshold was number of values == 1 is less than 10')
+        file.write('Label Columns not included due to too little postive labels:\n  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
+        file.write('\nThreshold was number of values == 1 is less than 10')
     
     avg_cpu_info = total_cpu_info / len(filtered_label_cols)
     avg_mem_info = total_mem_info / len(filtered_label_cols)
@@ -2436,6 +2450,8 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
     metric_dic['cutoff'] = (res_test['cutoff_mcc'] if threshold_type=='mcc' else (res_test['cutoff_ji'] if threshold_type=='ji' else (res_test['cutoff_f1'] if threshold_type=='f1' else res_test['cutoff_youden']))).astype(float)
             
     print("Cutoff Index: ", metric_dic['cutoff'])
+    cutoff = metric_dic['cutoff'] 
+    #st.write(f'Cutoff value: {cutoff}')
 
     #st.write(probas_test[:, 1])
     predictions_test = [1 if p >= metric_dic['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
@@ -2450,6 +2466,11 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
         metric_dic['AUROC CI High (Train)'] = df_res_train['auc_cihigh']
         metric_dic['P (Train)'] = df_res_train['P'].astype(float)
         metric_dic['N (Train)'] = df_res_train['N'].astype(float)
+
+        #p_train = df_res_train['P'].astype(float)
+        #n_train = df_res_train['N'].astype(float)
+        #st.write(f'P (Train): {p_train}')
+        #st.write(f'N (Train): {n_train}')
             
     # Extract TP, FP, TN, FN
     metric_dic['TP'] = res_test['TP']
@@ -2468,6 +2489,11 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
     metric_dic['Probability Scores'] = probas_test.tolist()
             
     print(metric_dic)
+    #st.write(metric_dic)
+    #p_test = res_test['P'].astype(float)
+    #n_test = res_test['N'].astype(float)
+    #st.write(f'P (Test): {p_test}')
+    #st.write(f'N (Test): {n_test}')
 
     if roc==True:
         # plot the ROC Curves

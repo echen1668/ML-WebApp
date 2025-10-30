@@ -41,6 +41,7 @@ import xlsxwriter
 from openpyxl.styles import Alignment, PatternFill, Border, Side
 import csv
 import xlsxwriter
+import math
 import magic 
 import random 
 from random import randint
@@ -1423,11 +1424,17 @@ def generate_results_table(results_dictonary):
     return results_df
 
 def get_avg_metric(variable, metrics):
+    st.write(variable)
     values_list = []
     for metric in metrics:
-        values_list.append(metric[variable])
+        if not math.isinf(metric[variable]) and not math.isnan((metric[variable])): # add value to list if it is not inf
+            values_list.append(metric[variable])
 
-    values_avg = sum(values_list) / len(values_list)
+    st.write(values_list)
+    if len(values_list) > 0:
+        values_avg = sum(values_list) / len(values_list)
+    else:
+        values_avg = np.nan
     return values_avg
 
 # get the average metric scores in results_dictonary values. override means the saved ROC scores override the calcuated avg. ROC scores if true
