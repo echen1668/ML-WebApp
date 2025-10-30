@@ -777,6 +777,13 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
                 with st.spinner("Saving all results..."): # if no error, then save the results
                     algorithm_folder = os.path.join("Results", exp_name, test_set_name)
                     os.makedirs(algorithm_folder, exist_ok=True)  # Create folder for algorithm results
+                    filename = os.path.join(algorithm_folder, "metadata.txt")
+                    f = open(filename, "w", encoding="utf-8")
+                    f.write("\nExp Name: %s"% exp_name)
+                    f.write("\nInput Columns: %s"% input_cols_og)
+                    f.write("\nOutput Columns: %s"% selected_outcomes)
+                    f.write("\nAlgorithms: %s"% selected_algos)
+                    f.close()
 
                     path_name = os.path.join(algorithm_folder, f"{exp_name}_results.joblib")
                     joblib.dump(results_dictonary, path_name)
@@ -809,7 +816,10 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
                             "results_dic": results_dictonary,
                             "results_table": results_dic,
                             'dataset used': test_name,
-                            "time_created": current_time
+                            "input variables": input_variables,
+                            "input variables (original)": input_cols_og,
+                            'outcomes': selected_outcomes,
+                            "time_created": current_time,
                         }
 
                         results.insert_one(result) # insert one dictonary
@@ -824,7 +834,10 @@ if model_path is not None and (uploaded_test_set or data_name_test) is not None 
                             "results_dic": path_name,
                             "results_table": results_dic,
                             'dataset used': test_name,
-                            "time_created": current_time
+                            "input variables": input_variables,
+                            "input variables (original)": input_cols_og,
+                            'outcomes': selected_outcomes,
+                            "time_created": current_time,
                         }
                         results.insert_one(result) # insert one dictonary
 

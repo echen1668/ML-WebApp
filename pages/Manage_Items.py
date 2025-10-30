@@ -217,17 +217,30 @@ exp_name_model = rename.selectbox("Select a saved ML experiment to rename", list
 # Let user specify the new name
 new_exp_name = rename.text_input("Enter a new exp. name", "")
 
-if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model != None and new_exp_name != "" and rename.button("Rename Experiment", disabled=st.session_state.running_rename, key='run_rename_button'):
-    models.update_many(
-        {"exp_name": exp_name_model}, # Filter condition
-        {"$set": { "exp_name": new_exp_name,
-        "model_path": f"Models\{new_exp_name}\{new_exp_name}_models.joblib" }}
-    )
+if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model != None and new_exp_name != "" and new_exp_name not in list(set(exp_names_models + exp_names_results)) and rename.button("Rename Experiment", disabled=st.session_state.running_rename, key='run_rename_button'):
+    if exp_name_model in exp_names_models:
+        st.write("Model Found!")
+        models.update_one(
+            {"exp_name": exp_name_model}, # Filter condition
+            {"$set": { "exp_name": new_exp_name,
+            "model_path": f"Models\{new_exp_name}\{new_exp_name}_models.joblib" }}
+        )
+        # get the results_dict
+        results_dict = models.find_one({"exp_name": new_exp_name})
+    else:
+        # get the results_dict
+        results_dict = results.find_one({"exp_name": exp_name_model})
+        if results_dict is not None:
+            st.write("Cross Validation Found")
 
     results.update_many(
         {"exp_name": exp_name_model}, # Filter condition
         {"$set": { "exp_name": new_exp_name }} # Update operation
     )
+
+    # get model type
+    model_type = results_dict['type']
+    st.write(f'Model Type is: {model_type}')
 
     # rename all instances of the experiment from the file system
     old_model_path = os.path.join("Models", exp_name_model)
@@ -235,12 +248,24 @@ if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model 
     #rename.write(old_model_path)
     #rename.write(new_model_path)
     if os.path.exists(old_model_path):
-
-        # rename the joblib model file
-        os.rename(os.path.join(old_model_path, f"{exp_name_model}_models.joblib"), os.path.join(old_model_path, f"{new_exp_name}_models.joblib"))
+        
+        if model_type != 'Native-CV':
+            # rename the joblib model file
+            try:
+                os.rename(os.path.join(old_model_path, f"{exp_name_model}_models.joblib"), os.path.join(old_model_path, f"{new_exp_name}_models.joblib"))
+            except PermissionError:
+                shutil.copytree(os.path.join(old_model_path, f"{exp_name_model}_models.joblib"), os.path.join(old_model_path, f"{new_exp_name}_models.joblib"))
+                shutil.rmtree(os.path.join(old_model_path, f"{exp_name_model}_models.joblib"))
+        #else:
+            # if model joblib file is not found, then it is most likey a Cross Val. experiment
+            #rename.info("Model not found in Models folder. If your experiment is a cross validation exp. then you wouldn't have a models file.")
         
         # rename the model folder
-        os.rename(old_model_path, new_model_path)
+        try:
+            os.rename(old_model_path, new_model_path)
+        except PermissionError:
+            shutil.copytree(old_model_path, new_model_path)
+            shutil.rmtree(old_model_path)
 
         rename.success("Experiment is successfully renamed in Models folder.")
     else:
@@ -250,7 +275,7 @@ if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model 
     new_results_path = os.path.join("Results", new_exp_name)
     rename.write(old_results_path)
     rename.write(new_results_path)
-    if os.path.exists(old_results_path):
+    if os.path.exists(old_results_path) and model_type != 'Native-CV':
         
         # rename the results files
         directory_contents = os.listdir(old_results_path)
@@ -262,13 +287,32 @@ if len(list(set(exp_names_models + exp_names_results))) != 0 and exp_name_model 
             os.rename(os.path.join(item_path, f"{exp_name_model}_results.xlsx"), os.path.join(item_path, f"{new_exp_name}_results.xlsx"))
             
         # rename the model results folder
-        os.rename(old_results_path, new_results_path)
+        try:
+            os.rename(old_results_path, new_results_path)
+        except PermissionError:
+            shutil.copytree(old_results_path, new_results_path)
+            shutil.rmtree(old_results_path)
         rename.success("Experiment is successfully renamed in Results folder.")
+
+    elif os.path.exists(old_results_path) and model_type == 'Native-CV':
+        # rename the results files
+        os.rename(os.path.join(old_results_path, f"{exp_name_model}_results.joblib"), os.path.join(old_results_path, f"{new_exp_name}_results.joblib"))
+        os.rename(os.path.join(old_results_path, f"{exp_name_model}_results.xlsx"), os.path.join(old_results_path, f"{new_exp_name}_results.xlsx"))
+
+        # rename the model results folder
+        try:
+            os.rename(old_results_path, new_results_path)
+        except PermissionError:
+            shutil.copytree(old_results_path, new_results_path)
+            shutil.rmtree(old_results_path)
+        rename.success("Experiment is successfully renamed in Results folder.")
+
     else:
         rename.error("Experiment not found in Results folder")
 
     # Reset exp_name_model
-
+elif exp_name_model != None and new_exp_name != "" and new_exp_name in list(set(exp_names_models + exp_names_results)):
+    rename.error("Experiment with that name already exists")
 
 # session states for disabling rename button for datasets
 if 'run_dataset_button' in st.session_state and st.session_state.run_dataset_button == True:
@@ -284,30 +328,47 @@ data_name = rename.selectbox("Select a saved dataset to rename", data_names, ind
 # Let user specify the new name
 new_data_name = rename.text_input("Enter a new dataset name (No need to add file extension)", "")
 
-if len(list(data_names)) != 0 and data_name != None and new_data_name != "" and rename.button("Rename Dataset", disabled=st.session_state.running_dataset, key='run_dataset_button'):
-
+# add the exenstion to new data name
+if data_name != None and new_data_name != "":
     if data_name.endswith('.xlsx'):
-        new_data_name = new_data_name + ".xlsx"
+        full_new_data_name = new_data_name + ".xlsx"
+        alt_new_data_name = new_data_name + ".csv" # we have this variable to check for any dataset that have the same name but differnt file name
     elif data_name.endswith('.csv'):
-        new_data_name = new_data_name + ".csv"
+        full_new_data_name = new_data_name + ".csv"
+        alt_new_data_name = new_data_name + ".xlsx"
 
-    #st.write(new_data_name)
+#st.write(full_new_data_name)
+#st.write(alt_new_data_name)
+
+if len(list(data_names)) != 0 and data_name != None and new_data_name != "" and (full_new_data_name not in list(data_names) and alt_new_data_name not in list(data_names))  and rename.button("Rename Dataset", disabled=st.session_state.running_dataset, key='run_dataset_button'):
+
+    #if data_name.endswith('.xlsx'):
+        #full_new_data_name = new_data_name + ".xlsx"
+    #elif data_name.endswith('.csv'):
+        #full_new_data_name = new_data_name + ".csv"
 
     # update dataset in databse
     datasets.update_many(
         {"data_name": data_name}, # Filter condition
-        {"$set": { "data_name": new_data_name,
-        "data_path": f"Data Sets\{new_data_name}" }}
+        {"$set": { "data_name": full_new_data_name,
+        "data_path": f"Data Sets\{full_new_data_name}" }}
     )
 
     # update dataset in folder system
     old_model_path = f"Data Sets\{data_name}"
-    new_model_path = f"Data Sets\{new_data_name}"
+    new_model_path = f"Data Sets\{full_new_data_name}"
     if os.path.exists(old_model_path):
         
         # rename the Data Sets folder
-        os.rename(old_model_path, new_model_path)
+        try:
+            os.rename(old_model_path, new_model_path)
+        except PermissionError:
+            shutil.copytree(old_model_path, new_model_path)
+            shutil.rmtree(old_model_path)
 
         rename.success("Dataset is successfully renamed in Data Sets folder.")
     else:
         rename.error("Dataset not found in Data Sets folder")
+
+elif data_name != None and new_data_name != "" and (full_new_data_name in list(data_names) or alt_new_data_name in list(data_names)):
+    rename.error("Dataset with that name already exists")

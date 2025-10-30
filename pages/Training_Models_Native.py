@@ -341,6 +341,14 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
             # save the results into database
             results_folder = os.path.join("Results", project_name, data_name) if st.session_state.training_method=="Train/Test Split" else os.path.join("Results", project_name)
             os.makedirs(results_folder, exist_ok=True)  # Create folder for algorithm results if it doesn't exists yet
+            filename = os.path.join(results_folder, "metadata.txt")
+            f = open(filename, "w", encoding="utf-8")
+            f.write("\nExp Name: %s"% project_name)
+            f.write("\nInput Columns: %s"% input_cols_og)
+            f.write("\nOutput Columns: %s"% label_cols)
+            f.write("\nAlgorithms: %s"% algorithms)
+            f.close()
+            
 
             training_type = "Native" if st.session_state.training_method=="Train/Test Split" else "Native-CV"
 
@@ -377,8 +385,15 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                     "results_dic": final_results_dic,
                     "results_table": results_dic,
                     'dataset used': train_set['Name'],
+                    "algorithms": algorithms,
+                    "input variables": input_cols,
+                    "input variables (original)": input_cols_og,
+                    'outcomes': label_cols,
                     "time_created": current_time
                 }
+
+                if st.session_state.training_method == "Cross-Validation": # add configuration if the experiment is cross validation
+                    result['configuration'] = configuration_dic
 
                 results.insert_one(result) # insert one dictonary
             except:
@@ -392,8 +407,16 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
                     "results_dic": path_name,
                     "results_table": results_dic,
                     'dataset used': train_set['Name'],
+                    "algorithms": algorithms,
+                    "input variables": input_cols,
+                    "input variables (original)": input_cols_og,
+                    'outcomes': label_cols,
                     "time_created": current_time
                 }
+
+                if st.session_state.training_method == "Cross-Validation": # add configuration if the experiment is cross validation
+                    result['configuration'] = configuration_dic
+
                 results.insert_one(result) # insert one dictonary
     
     st.success(f"✅ Experiment '{project_name}' completed successfully!")
@@ -778,7 +801,7 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
     configuration_dic = generate_congfig_file(project_name, algorithms, threshold_type, options)    
 
 elif configure_options == "Upload a file":
-    unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a input variable to be consired catagorical:", min_value=1, max_value=100, value=10)
+    unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a numerical input variable to be consired catagorical:", min_value=1, max_value=100, value=10)
     # Number input
     num_models = st.number_input("Enter the number of models:", min_value=1, max_value=100, value=5)
     # reset configuration_dic
