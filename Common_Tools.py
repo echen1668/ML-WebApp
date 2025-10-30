@@ -1405,9 +1405,12 @@ def generate_results_table(results_dictonary):
             # Optionally add training confusion matrix values if available
             train_metrics = ['TP (Train)', 'FP (Train)', 'TN (Train)', 'FN (Train)']
 
-            for metric in train_metrics: # add training confusion matrix numbers if they exist
+            for metric in train_metrics: # add training confusion matrix numbers if they exist. (Train-Test)/Train %
                 if metric in list(outcomes[outcome]['evaluation'].keys()):
                     new_row[metric] = outcomes[outcome]['evaluation'][metric]
+
+            # calcuate and add the % change of the train vs. test AUROC score
+            new_row['Train vs. Test AUROC change%'] = ((outcomes[outcome]['evaluation']['AUROC Score (Train)'] - outcomes[outcome]['evaluation']['AUROC Score']) / outcomes[outcome]['evaluation']['AUROC Score (Train)']) * 100
 
             # add new row
             rows.append(new_row)
