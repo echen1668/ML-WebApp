@@ -24,7 +24,8 @@ catboost
 streamlit_cookies_manager
 python-magic
 skopt
-llvmlite=0.39.0
+llvmlite==0.39.0
+
 
 
 
