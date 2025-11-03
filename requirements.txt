@@ -25,6 +25,7 @@ streamlit_cookies_manager
 python-magic
 skopt
 llvmlite==0.39.0
+scikit-optimize==0.9.0
 
 
 
