@@ -4,7 +4,7 @@ xlsxwriter
 rich
 mdurl
 pymongo==4.11.3
-scikit-learn==1.5.2
+scikit-learn==1.3.2
 seaborn
 pandas
 numpy==1.26.4
@@ -24,6 +24,7 @@ catboost
 streamlit_cookies_manager
 python-magic
 llvmlite==0.39.0
+
 
 
 
