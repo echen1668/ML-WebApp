@@ -14,7 +14,6 @@ pyarrow
 autogluon
 psutil
 matplotlib
-seaborn
 scipy==1.9
 joblib
 pathlib
@@ -24,6 +23,6 @@ incremental
 shap
 catboost
 streamlit_cookies_manager
-magic
-libmagic
+python-magic
 llvmlite==0.39.0
+
