@@ -1,4 +1,4 @@
-streamlit==1.33.0
+streamlit
 openpyxl
 xlsxwriter
 rich
@@ -23,6 +23,7 @@ shap
 catboost
 streamlit_cookies_manager
 python-magic
+
 
 
 
