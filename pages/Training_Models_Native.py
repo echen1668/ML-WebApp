@@ -55,8 +55,6 @@ from sklearn.feature_selection import chi2
 from sklearn.feature_selection import SelectPercentile
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
-#from tune_sklearn import TuneSearchCV
-from skopt import BayesSearchCV
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.calibration import calibration_curve, CalibrationDisplay
 from sklearn.model_selection import train_test_split
@@ -114,6 +112,18 @@ algo_shortnames = { # short names for ML Algorithims
     "Descision Tree": "dt", 
     "SVM": "svm",
     "KNearest N.": "knn", 
+}
+
+option_names = { # potenital values in put in the options section of the configuartion file
+    "impute_strategy": "['mean', 'median', 'most_frequent', 'constant']",
+    'cut threshold (range)': "(0.0 - 1.0)",
+    "inf (how to handle inf values in data)": "['replace with null', 'replace with zero']",
+    "outliers (how to handle outliers in data)": "['None', 'remove rows', 'log']",
+    "scalingMethod": "['MinMaxScaler', 'RobustScaler', 'MaxAbsScaler', 'StandardScaler']",
+    "rebalance_type": "['RandomUnderSampler', 'RandomOverSampler', 'SMOTE', 'ADASYN']",
+    "sampling_strategy": "['auto', 'majority', 'not minority', 'not majority', 'all', 'ratio']",
+    "FeatureSelection_method": "['MRMR', 'RFECV', 'SelectKBest-f_classif', 'SelectKBest-chi2']", 
+    "strategy": "['random', 'bayesian', 'grid']"
 }
 
 # --- Page Configuration ---
@@ -814,9 +824,16 @@ elif configure_options == "Upload a file":
         mime="application/json"
     )
 
-    with st.expander("▶️ List of ML Algorithims to use."):
+    st.subheader("Guide for setting up configuration file")
+
+    with st.expander("▶️ List of ML Algorithims to use."): # provide the user a guide to all the ML alogrhtims that they can use.
         st.write("Please use the short versions of the algo names shown on the **right**.")
         st.write(algo_shortnames)
+
+
+    with st.expander("▶️ Setup Options."): # provide the user a list of possible values to insert into the respective key in the configuration file
+        st.write("Please use the names shown on the **lists**.")
+        st.json(option_names)
 
     # File uploader for the training
     uploaded_config_file= st.file_uploader("Upload a Configuration File")
