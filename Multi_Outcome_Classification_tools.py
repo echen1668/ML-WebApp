@@ -2182,7 +2182,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
 
             # Imputing Data if chosen
             if options['Impute'] == "True":
-                #st.write("Impute")
+                print("Impute")
                 # Drop all-NaN columns (cannot be imputed with mean)
                 #all_nan_cols = X_train_fold.columns[X_train_fold.isna().all()].tolist()
                 #if all_nan_cols:
@@ -2194,17 +2194,20 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 f.write("\nImputer: %s"% imputer)
                 imputer.fit(X_train_fold)
                 X_train_fold = pd.DataFrame(imputer.transform(X_train_fold), columns = X_col, index=X_train_fold.index)
+                X_train_fold.reset_index(drop=True, inplace=True)
                 y_train_fold.reset_index(drop=True, inplace=True)
                 #imputing_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_imputer.joblib")
                 #joblib.dump(imputer, imputing_name)
                 # Impute the test set
                 X_test_fold = pd.DataFrame(imputer.transform(X_test_fold), columns = X_col, index=X_test_fold.index)
+                X_test_fold.reset_index(drop=True, inplace=True)
                 y_test_fold.reset_index(drop=True, inplace=True)
 
             # Scaling if chosen
             if options['Scaling'] == "True" and len(numeric_cols) > 0:
-                #st.write("Scaling")
+                print("Scaling")
                 X_train_fold, scaler = Common_Tools.scaling(X_train_fold, input_cols, label_col, numeric_cols, categorical_cols, scalingMethod=options['scalingMethod'])
+                X_train_fold.reset_index(drop=True, inplace=True)
                 y_train_fold.reset_index(drop=True, inplace=True)
                 f.write("\nScaler: %s"% scaler)
                 #scale_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_scaler.joblib")
@@ -2212,6 +2215,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 # scale the test set
                 #X_test_fold[numeric_cols] = scaler.transform(X_test_fold[numeric_cols])
                 X_test_fold.loc[:, numeric_cols] = scaler.transform(X_test_fold[numeric_cols])
+                X_test_fold.reset_index(drop=True, inplace=True)
                 y_test_fold.reset_index(drop=True, inplace=True)
         
             if options['Normalize'] == 'True':  
@@ -2222,12 +2226,14 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 f.write("\nNormalizer: %s"% normalizer)
                 #X_train_fold[numeric_cols] = normalizer.transform(X_train_fold[numeric_cols])
                 X_train_fold.loc[:, numeric_cols] = normalizer.transform(X_train_fold[numeric_cols])
+                X_train_fold.reset_index(drop=True, inplace=True)
                 y_train_fold.reset_index(drop=True, inplace=True)
                 #normalize_name = os.path.join(algorithm_folder, algorithm + "_" + Common_Tools.sanitize_filename(label_col) + "_normalizer.joblib")
                 #joblib.dump(normalizer, normalize_name)
                 # Normalize the test set
                 #X_test_fold[numeric_cols] = normalizer.transform(X_test_fold[numeric_cols])
                 X_test_fold.loc[:, numeric_cols] = normalizer.transform(X_test_fold[numeric_cols])
+                X_test_fold.reset_index(drop=True, inplace=True)
                 y_test_fold.reset_index(drop=True, inplace=True)
             
 
