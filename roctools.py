@@ -374,6 +374,7 @@ def full_roc_curve(y_true, y_pred, alpha=0.95, index='youden'):
 
     res['precision'] = res['TP']/(res['TP'] + res['FP'])
     res['recall'] = res['TP']/(res['TP'] + res['FN'])
+    res['f1 score'] = 2 * ((res['precision'] * res['recall']) / (res['precision'] + res['recall']))
 
     return res, res_array
 

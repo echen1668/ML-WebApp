@@ -2489,6 +2489,7 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
             
     metric_dic['precision'] = res_test['precision']
     metric_dic['recall'] = res_test['recall']
+    metric_dic['f1 score'] = res_test['f1 score']
             
     metric_dic['Ground Truths'] = y_test.to_list()
     metric_dic['Predictions'] = predictions_test

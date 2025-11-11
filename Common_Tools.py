@@ -1383,6 +1383,7 @@ def generate_results_table(results_dictonary):
                       'Accuracy': outcomes[outcome]['evaluation']['Accuracy'],
                       'Precision': outcomes[outcome]['evaluation']['precision'],
                       'Recall': outcomes[outcome]['evaluation']['recall'],
+                      'F1 Score': outcomes[outcome]['evaluation']['f1 score'],
                       'TPR': outcomes[outcome]['evaluation']['TPR'], # same as Sensitivity 
                       'TNR': outcomes[outcome]['evaluation']['TNR'], # same as Specificity 
                       'FPR': outcomes[outcome]['evaluation']['FPR'], 
@@ -1479,6 +1480,7 @@ def get_avg_results_dic(results_dictonary, override=False):
 
             metric_dic_test['precision'] = get_avg_metric('precision', metrics_test)
             metric_dic_test['recall'] = get_avg_metric('recall', metrics_test)
+            metric_dic_test['f1 score'] = get_avg_metric('f1 score', metrics_test)
 
             metric_dic_test['TP'] = get_avg_metric('TP', metrics_test)
             metric_dic_test['FP'] = get_avg_metric('FP', metrics_test)
