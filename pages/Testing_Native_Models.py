@@ -349,6 +349,7 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 
                 metric_dic['precision'] = res['precision']
                 metric_dic['recall'] = res['recall']
+                metric_dic['f1 score'] = res['f1 score']
                 
                 metric_dic['Ground Truths'] = y_test.to_list()
                 metric_dic['Predictions'] = predictions_test
@@ -453,6 +454,7 @@ def generate_results_table(results_dictonary):
                       'Accuracy': outcomes[outcome]['evaluation']['Accuracy'],
                       'Precision': outcomes[outcome]['evaluation']['precision'],
                       'Recall': outcomes[outcome]['evaluation']['recall'],
+                      'F1 Score': outcomes[outcome]['evaluation']['f1 score'],
                       'TPR': outcomes[outcome]['evaluation']['TPR'], # same as Sensitivity 
                       'TNR': outcomes[outcome]['evaluation']['TNR'], # same as Specificity 
                       'FPR': outcomes[outcome]['evaluation']['FPR'], 
