@@ -681,7 +681,7 @@ def feature_selection(input_df, output_df, method="MRMR", type='f_classif', N=20
         selector = RFECV(estimator, step=1, cv=cv, min_features_to_select=N)
         selector = selector.fit(input_df, output_df)
         selected_features = input_df.columns[selector.support_]
-        st.write(selected_features)
+        #st.write(selected_features)
         input_df_new = input_df[selected_features]
     elif method=="SelectKBest":
         if type=='f_classif':
@@ -1428,13 +1428,13 @@ def generate_results_table(results_dictonary):
     return results_df
 
 def get_avg_metric(variable, metrics):
-    st.write(variable)
+    #st.write(variable)
     values_list = []
     for metric in metrics:
         if not math.isinf(metric[variable]) and not math.isnan((metric[variable])): # add value to list if it is not inf
             values_list.append(metric[variable])
 
-    st.write(values_list)
+    #st.write(values_list)
     if len(values_list) > 0:
         values_avg = sum(values_list) / len(values_list)
     else:
@@ -1523,7 +1523,7 @@ def get_avg_results_dic(results_dictonary, override=False):
             results_dictonary_avg[algo][outcome]['conf_matrix'] = {}
             results_dictonary_avg[algo][outcome]['conf_matrix']['Train'] = values['Conf_Matrix']['Train'].tolist()
             results_dictonary_avg[algo][outcome]['conf_matrix']['Test'] = values['Conf_Matrix']['Test'].tolist()
-            st.write(f"Avg. Conf. Matrix Final: {results_dictonary_avg[algo][outcome]['conf_matrix']['Test']}")
+            #st.write(f"Avg. Conf. Matrix Final: {results_dictonary_avg[algo][outcome]['conf_matrix']['Test']}")
     
     #st.write(results_dictonary_avg)
     return results_dictonary_avg
