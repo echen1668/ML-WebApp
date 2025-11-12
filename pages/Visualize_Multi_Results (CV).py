@@ -343,8 +343,10 @@ if len(st.session_state.df_total) != 0:
         error_y_minus=error_y_minus
     )
 
-    # Set y-axis range from 0 to 1
-    fig.update_layout(yaxis=dict(range=[0, 1]))
+    # Set y-axis range from 0 to 1 if metric is the following
+    if metric in ['AUROC Score', 'AUROC CI Lower', 'AUROC CI Upper', 'Accuracy', 'Precision', 'Recall', 'F1 Score', 'TPR', 'TNR', 'FPR', 'FNR', 'PPV', 'NPV', 'AUROC Score (Train)', 'AUROC CI Lower (Train)', 'AUROC CI Upper (Train)']:
+        fig.update_layout(yaxis=dict(range=[0, 1]))
+
 
     # Rotate text labels to be horizontal and limit decimals to 2 places
     fig.update_traces(
