@@ -198,6 +198,10 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                     evaluation['AUROC CI High (Train)'] = res_train['auc_cihigh']
                     evaluation['P (Train)'] = res_train['P'].astype(float)
                     evaluation['N (Train)'] = res_train['N'].astype(float)
+                    evaluation['TP (Train)'] = res_train['TP']
+                    evaluation['FP (Train)'] = res_train['FP']
+                    evaluation['TN (Train)'] = res_train['TN']
+                    evaluation['FN (Train)'] = res_train['FN']
                     
                 # create a states able for metric on the test set
                 res, res_array = full_roc_curve(y_test.to_numpy(), y_proba[1].to_numpy(), index=cutoff_index)
@@ -234,6 +238,7 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
                     
                 evaluation['precision'] = res['precision']
                 evaluation['recall'] = res['recall']
+                evaluation['f1 score'] = res['f1 score']
                     
                 evaluation['Ground Truths'] = y_test.tolist()
                 evaluation['Predictions'] = y_pred
@@ -260,13 +265,13 @@ def test_model(models, test_data_raw, input_columns, outcomes, train_data_raw=No
             # Sort by importance
             feature_importance_df_sorted = feature_importance_df.sort_values('importance', ascending=False)
             print(feature_importance_df_sorted)
-            st.dataframe(feature_importance_df_sorted)
+            #st.dataframe(feature_importance_df_sorted)
             feature_importance_dic[outcome] = feature_importance_df_sorted
 
             # Get top 10 most important feature names
             top_features = feature_importance_df_sorted['feature'].head(10).tolist()
             #all_features = feature_importance_df_sorted['feature'].tolist()
-            st.write(f"Top 10 important features: {top_features}")
+            #st.write(f"Top 10 important features: {top_features}")
             f.write("\nTop 10 important features: %s" % top_features)
 
             #except:
@@ -325,6 +330,7 @@ def generate_results_table(results_dictonary, outcomes):
                   'Accuracy': results_dictonary[outcome]['evaluation']['Test Accuracy'],
                   'Precision': results_dictonary[outcome]['evaluation']['precision'],
                   'Recall': results_dictonary[outcome]['evaluation']['recall'],
+                  'F1 Score': results_dictonary[outcome]['evaluation']['f1 score'],
                   'TPR': results_dictonary[outcome]['evaluation']['TPR'], # same as Sensitivity 
                   'TNR': results_dictonary[outcome]['evaluation']['TNR'], # same as Specificity 
                   'FPR': results_dictonary[outcome]['evaluation']['FPR'], 
@@ -353,6 +359,7 @@ def generate_results_table(results_dictonary, outcomes):
                   'Accuracy': results_dictonary[outcome]['evaluation']['Test Accuracy'],
                   'Precision': results_dictonary[outcome]['evaluation']['precision'],
                   'Recall': results_dictonary[outcome]['evaluation']['recall'],
+                  'F1 Score': results_dictonary[outcome]['evaluation']['f1 score'],
                   'TPR': results_dictonary[outcome]['evaluation']['TPR'], # same as Sensitivity 
                   'TNR': results_dictonary[outcome]['evaluation']['TNR'], # same as Specificity 
                   'FPR': results_dictonary[outcome]['evaluation']['FPR'], 
@@ -368,6 +375,16 @@ def generate_results_table(results_dictonary, outcomes):
                   'Best Model AUROC Score': best_model_auroc,
                   'P': results_dictonary[outcome]['evaluation']['P'],
                   'N': results_dictonary[outcome]['evaluation']['N']}
+            
+        # Optionally add training confusion matrix values if available
+        train_metrics = ['TP (Train)', 'FP (Train)', 'TN (Train)', 'FN (Train)']
+
+        for metric in train_metrics: # add training confusion matrix numbers if they exist. (Train-Test)/Train %
+            if metric in list(outcomes[outcome]['evaluation'].keys()):
+                new_row[metric] = outcomes[outcome]['evaluation'][metric]
+
+        # calcuate and add the % change of the train vs. test AUROC score
+        new_row['Train vs. Test AUROC change%'] = ((outcomes[outcome]['evaluation']['AUROC Score (Train)'] - outcomes[outcome]['evaluation']['AUROC Score']) / outcomes[outcome]['evaluation']['AUROC Score (Train)']) * 100
             
         # add new row
         rows.append(new_row)
@@ -385,32 +402,41 @@ def generate_results_table(results_dictonary, outcomes):
 
 def plot_feature_importance(feature_importance_dic, directory_name):
     outcomes = list(feature_importance_dic.keys())
-    st.write(f'Outcomes {outcomes}')
+    #st.write(f'Outcomes {outcomes}')
     for outcome in outcomes:
-        
+        st.write(f'Outcome {outcome}')
         # get the table
-        df = feature_importance_dic[outcome]
+        df_feature_importance = feature_importance_dic[outcome]
+        st.write(df_feature_importance)
         
         # the abs value of feature importance values
-        df['importance (abs)'] = df['importance'].abs()
+        df_feature_importance['importance (abs)'] = df_feature_importance['importance'].abs()
         
         # Sort the DataFrame by the column values
-        df = df.sort_values(by='importance (abs)', ascending=False)
+        #df_feature_importance = df_feature_importance.sort_values(by='importance (abs)', ascending=False)
+
+        # get the names of the top 10 most important features
+        top_features = df_feature_importance['feature'].head(10).tolist()
+        top_importances = df_feature_importance['importance (abs)'].head(10).tolist()
         
         # plot the 10 top most important features
-        plt.figure(figsize=(8, 6))
-        ax = df['importance (abs)'][:10].plot(kind='bar')
-        plt.title(f'Feature Importance for {outcome} (Top 10)')
+        fig, ax = plt.subplots(figsize=(6, 6))
+        #ax = df_feature_importance['importance (abs)'][:10].plot(kind='bar')
+        ax.bar(top_features, top_importances, color='skyblue')
+        ax.set_title(f'Feature Importance for {outcome} on {exp_name} (Top 10)', fontsize=8)
+        ax.set_ylabel('Importance (abs)', fontsize=7)
+        ax.set_xlabel('Feature', fontsize=7)
 
         # Add text labels
-        for i, v in enumerate(df['importance (abs)'][:10]):
+        for i, v in enumerate(top_importances):
             ax.text(i, v + 0.0005, f'{v:.3f}', ha='center')
 
         # Set y-axis range from 0 to 1
-        ax.set_ylim(0, df['importance (abs)'][0] + 0.01)
-        
+        ax.set_ylim(0, max(top_importances) + 0.01)
+
         # Adjust x-axis labels for readability
-        plt.xticks(rotation=45, ha='right')  # Rotate and align right
+        plt.xticks(top_features, rotation=45, ha='right', fontsize=8)  # Rotate and align right
+        plt.yticks(fontsize=8)
         
         # Save the plot as a PNG file
         os.makedirs(directory_name, exist_ok=True)
@@ -418,6 +444,7 @@ def plot_feature_importance(feature_importance_dic, directory_name):
         plt.savefig(file_name, dpi=300, bbox_inches='tight')
 
         plt.close()
+        
 
         #plt.show()
 
@@ -429,6 +456,22 @@ exp_name = st.selectbox("Select the ML model(s)", exp_names, index=None, placeho
 
 # get the model data
 exp_dic = models.find_one({"exp_name": exp_name})
+
+# get the model data and their configuration
+if exp_dic != None:
+    # dropdown section to show excluded outcomes
+    with st.expander("🚫 Show Excluded Outcomes"):
+        # uploaded textfile showing excluded columns
+        file_path_excluded_labels = f'Models/{exp_name}/excluded_label_cols_setup.txt'
+        try:
+            with open(file_path_excluded_labels, 'r') as file:
+                content = file.read()  # Reads the entire content of the file
+                #st.write(content)
+                st.text_area(f"Excluded Outcomes", content, height=300)
+        except FileNotFoundError:
+            st.error(f"Error: The file '{file_path_excluded_labels}' was not found.")
+        except Exception as e:
+            st.error(f"An error occurred while reading the file '{file_path_excluded_labels}': {e}")
 
 # get the needed values
 model_path = exp_dic['model_path'] if exp_dic is not None else None

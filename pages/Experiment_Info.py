@@ -230,10 +230,16 @@ for exp_name in filtered_exp_names:
         time_created = 'N/A'
 
     # get the training data path name
-    try:
-        train_data = model['train_data'] if model is not None else None
-    except:
-        train_data = 'N/A'
+    if model['type'] != "Native-CV":
+        try:
+            train_data = model['train_data'] if model is not None else None
+        except:
+            train_data = 'N/A'
+    else:
+        try:
+            train_data = model['dataset used'] if model is not None else None
+        except:
+            train_data = 'N/A'
 
     # get all results for that ML experiment
     all_results = list(results.find({"exp_name": exp_name}))

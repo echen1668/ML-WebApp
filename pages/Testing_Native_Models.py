@@ -337,6 +337,10 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
                 metric_dic['AUROC CI High (Train)'] = df_res_train['auc_cihigh']
                 metric_dic['P (Train)'] = df_res_train['P'].astype(float)
                 metric_dic['N (Train)'] = df_res_train['N'].astype(float)
+                metric_dic['TP (Train)'] = df_res_train['TP']
+                metric_dic['FP (Train)'] = df_res_train['FP']
+                metric_dic['TN (Train)'] = df_res_train['TN']
+                metric_dic['FN (Train)'] = df_res_train['FN']
                 
                 # Extract TP, FP, TN, FN
                 metric_dic['TP'] = res['TP']
@@ -474,6 +478,17 @@ def generate_results_table(results_dictonary):
                       'P (Train)': outcomes[outcome]['evaluation']['P (Train)'],
                       'N (Train)': outcomes[outcome]['evaluation']['N (Train)']}
 
+            
+            # Optionally add training confusion matrix values if available
+            train_metrics = ['TP (Train)', 'FP (Train)', 'TN (Train)', 'FN (Train)']
+
+            for metric in train_metrics: # add training confusion matrix numbers if they exist. (Train-Test)/Train %
+                if metric in list(outcomes[outcome]['evaluation'].keys()):
+                    new_row[metric] = outcomes[outcome]['evaluation'][metric]
+
+            # calcuate and add the % change of the train vs. test AUROC score
+            new_row['Train vs. Test AUROC change%'] = ((outcomes[outcome]['evaluation']['AUROC Score (Train)'] - outcomes[outcome]['evaluation']['AUROC Score']) / outcomes[outcome]['evaluation']['AUROC Score (Train)']) * 100
+            
             # add new row
             rows.append(new_row)
 
@@ -552,6 +567,29 @@ except:
     input_cols_og = input_variables
 outcomes = exp_dic['outcomes'] if exp_dic is not None else None
 train_data = exp_dic['train_data'] if exp_dic is not None else None
+
+if exp_dic != None:
+    # get the model data and their configuration
+    exp_list = list(configuration[list(configuration.keys())[0]].keys())[1:]
+    #st.write(exp_list)
+    # dropdown section to show excluded outcomes
+    with st.expander("🚫 Show Excluded Outcomes"):
+        # Dropdown to select an exp/algorthim
+        exp_item = st.selectbox("Select an exp.", exp_list, help="Select a specfic exp. from the ML experiment.", placeholder="Select One...")
+
+        algorithm = configuration[list(configuration.keys())[0]][exp_item]['algorithm']
+        # uploaded textfile showing excluded columns
+        file_path_excluded_labels = f'Models/{exp_name}/{exp_item}/excluded_label_cols_setup.txt'
+        try:
+            with open(file_path_excluded_labels, 'r') as file:
+                content = file.read()  # Reads the entire content of the file
+                #st.write(content)
+                st.text_area(f"Excluded Outcomes for **{algorithm}**", content, height=300)
+        except FileNotFoundError:
+            st.error(f"Error: The file '{file_path_excluded_labels}' was not found.")
+        except Exception as e:
+            st.error(f"An error occurred while reading the file '{file_path_excluded_labels}': {e}")
+
 
 # get the time created
 try:

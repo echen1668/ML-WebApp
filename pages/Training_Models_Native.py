@@ -98,7 +98,7 @@ from pymongo import MongoClient
 import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
 from Multi_Outcome_Classification_tools import multi_outcome_hyperparameter_binary, multi_outcome_hyperparameter_binary_train_and_test, multi_outcome_cv
-from Common_Tools import generate_configuration_file, generate_configuration_template, generate_results_table, generate_congfig_file, get_avg_results_dic, wrap_text_excel, expand_cell_excel, grid_excel, generate_all_idx_files, upload_data, load_data, save_data, data_prep, data_prep_train_set, parse_exp_multi_outcomes, setup_multioutcome_binary, refine_binary_outcomes, generate_joblib_model
+from Common_Tools import generate_configuration_file, generate_shap_table, generate_configuration_template, generate_results_table, generate_congfig_file, get_avg_results_dic, wrap_text_excel, expand_cell_excel, grid_excel, generate_all_idx_files, upload_data, load_data, save_data, data_prep, data_prep_train_set, parse_exp_multi_outcomes, setup_multioutcome_binary, refine_binary_outcomes, generate_joblib_model
 from roctools import full_roc_curve, plot_roc_curve
 
 algo_shortnames = { # short names for ML Algorithims
@@ -404,6 +404,9 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
                 if st.session_state.training_method == "Cross-Validation": # add configuration if the experiment is cross validation
                     result['configuration'] = configuration_dic
+                    # create SHAP Values table
+                    _, shap_table_path = generate_shap_table(results_dictonary, project_name) # get the path for the SHAP table file
+                    result['SHAP Table'] = shap_table_path
 
                 results.insert_one(result) # insert one dictonary
             except:
@@ -426,6 +429,9 @@ def project(configuration_dic, data_sets, unique_value_threshold=10):
 
                 if st.session_state.training_method == "Cross-Validation": # add configuration if the experiment is cross validation
                     result['configuration'] = configuration_dic
+                    # create SHAP Values table
+                    _, shap_table_path = generate_shap_table(results_dictonary, project_name) # get the path for the SHAP table file
+                    result['SHAP Table'] = shap_table_path
 
                 results.insert_one(result) # insert one dictonary
     
@@ -619,34 +625,6 @@ elif data_name_train:
     data_sets["Training Set"]["Data"] = df_train
 
 
-#test_sets = []
-#if data_options == "Upload a dataset" and test_uploaded_file:
-
-#   data_sets["Testing Set"] = {}
-
-#    for file in test_uploaded_file:
-        #st.subheader(f"Dataset: {file.name}")
-#        test_sets.append(file.name)
-
-#        df_test = load_data(file.name, file)
-        #st.write(df_test.head())  # Display the first few rows
-
-#        data_sets["Testing Set"][file.name] = df_test
-#elif len(data_names_test) > 0:
-#    data_sets["Testing Set"] = {}
-
-#    for data_name_test in data_names_test:
-#        test_sets.append(data_name_test)
-        #st.write(f"Dataset: {file.name}")
-#        df_test = upload_data(os.path.join("Data Sets",data_name_test))
-        #st.write(df_test.head())  # Display the first few rows
-#        data_sets["Testing Set"][data_name_test] = df_test
-
-#else:
-#    data_sets["Testing Set"] = {}
-
-#st.write(test_sets)
-
 if (main_uploaded_file or data_name_train) and not completed_index_file:
     st.info("A dataset has been uploaded. Now generate a matching index file to edit.")
     gen_idx(df_train, data_sets["Training Set"]["Name"])
@@ -698,7 +676,7 @@ if configure_options == "User Customization": #st.session_state.get("main_datase
         "Select ML Algorithms to Train",
         ['Random Forest', 'XGBoost', 'Cat Boost', "SGD Elastic", "SGD L2", "Logistic Reg.", "Logistic Reg. L2", "Descision Tree", "SVM", "KNearest N."]
     )
-
+    
     unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a numerical input variable to be consired catagorical:", min_value=1, max_value=100, value=10)
 
     with st.expander("▶️ Data Preprocessing Options"):
@@ -853,7 +831,7 @@ else:
 # --- Step 4: Execute ---
 st.header("Step 4: Run Experiment")
 
-if configuration_dic != None and st.button("Start Training", type="primary", use_container_width=True):
+if configuration_dic != None and ((configure_options == "Upload a file") or (configure_options == "User Customization" and len(algorithms) > 0)) and st.button("Start Training", type="primary", use_container_width=True):
     # Validation
     options = {key: val for key, val in st.session_state.items()}
         

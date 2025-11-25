@@ -298,6 +298,22 @@ exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select 
 # Upload and look at a results table
 st.markdown("<h2 style='text-align: center;'>Visualize the Results Table</h2>", unsafe_allow_html=True)
 
+# get the model data and their configuration
+if exp_name != None:
+    # dropdown section to show excluded outcomes
+    with st.expander("🚫 Show Excluded Outcomes"):
+        # uploaded textfile showing excluded columns
+        file_path_excluded_labels = f'Models/{exp_name}/excluded_label_cols_setup.txt'
+        try:
+            with open(file_path_excluded_labels, 'r') as file:
+                content = file.read()  # Reads the entire content of the file
+                #st.write(content)
+                st.text_area(f"Excluded Outcomes", content, height=300)
+        except FileNotFoundError:
+            st.error(f"Error: The file '{file_path_excluded_labels}' was not found.")
+        except Exception as e:
+            st.error(f"An error occurred while reading the file '{file_path_excluded_labels}': {e}")
+
 # get the results_dicts
 results_dicts = results.find({"exp_name": exp_name})
 

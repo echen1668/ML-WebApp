@@ -31,7 +31,7 @@ import datetime
 import pprint
 import pymongo
 from pymongo import MongoClient
-
+from io import StringIO
 # import module
 import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -286,6 +286,30 @@ exp_names = db.results.distinct("exp_name", {"type": "Native"})
 
 # Dropdown to select the experiment to display results from
 exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select a ML experiment from the database.")
+
+# get the model data and their configuration
+exp_dic = models.find_one({"exp_name": exp_name})
+configuration = exp_dic['configuration'] if exp_dic is not None else None
+exp_list = list(configuration[list(configuration.keys())[0]].keys())[1:]
+#st.write(exp_list)
+
+# dropdown section to show excluded outcomes
+with st.expander("🚫 Show Excluded Outcomes"):
+    # Dropdown to select an exp/algorthim
+    exp_item = st.selectbox("Select an exp.", exp_list, help="Select a specfic exp. from the ML experiment.", placeholder="Select One...")
+
+    algorithm = configuration[list(configuration.keys())[0]][exp_item]['algorithm']
+    # uploaded textfile showing excluded columns
+    file_path_excluded_labels = f'Models/{exp_name}/{exp_item}/excluded_label_cols_setup.txt'
+    try:
+        with open(file_path_excluded_labels, 'r') as file:
+            content = file.read()  # Reads the entire content of the file
+            #st.write(content)
+            st.text_area(f"Excluded Outcomes for **{algorithm}**", content, height=300)
+    except FileNotFoundError:
+        st.error(f"Error: The file '{file_path_excluded_labels}' was not found.")
+    except Exception as e:
+        st.error(f"An error occurred while reading the file '{file_path_excluded_labels}': {e}")
 
 # Upload and look at a results table
 st.markdown("<h2 style='text-align: center;'>Visualize the Results Table</h2>", unsafe_allow_html=True)

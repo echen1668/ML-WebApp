@@ -187,6 +187,33 @@ test_set = st.selectbox("Select the test set used", test_sets, help="Select a sp
 # get the final results_dict
 results_dict = results.find_one({"exp_name": exp_name, "test set": test_set})
 
+# get the model data and their configuration
+try:
+    configuration = results_dict['configuration'] if results_dict is not None else None
+except:
+    configuration = None
+
+if configuration is not None:
+    exp_list = list(configuration[list(configuration.keys())[0]].keys())[1:]
+    #st.write(exp_list)
+    # dropdown section to show excluded outcomes
+    with st.expander("🚫 Show Excluded Outcomes"):
+        # Dropdown to select an exp/algorthim
+        exp_item = st.selectbox("Select an exp.", exp_list, help="Select a specfic exp. from the ML experiment.", placeholder="Select One...")
+
+        algorithm = configuration[list(configuration.keys())[0]][exp_item]['algorithm']
+        # uploaded textfile showing excluded columns
+        file_path_excluded_labels = f'Models/{exp_name}/{exp_item}/excluded_label_cols_setup.txt'
+        try:
+            with open(file_path_excluded_labels, 'r') as file:
+                content = file.read()  # Reads the entire content of the file
+                #st.write(content)
+                st.text_area(f"Excluded Outcomes for **{algorithm}**", content, height=300)
+        except FileNotFoundError:
+            st.error(f"Error: The file '{file_path_excluded_labels}' was not found.")
+        except Exception as e:
+            st.error(f"An error occurred while reading the file '{file_path_excluded_labels}': {e}")
+
 # get some info
 model_type = results_dict['type'] if results_dict is not None else None
 
@@ -356,9 +383,6 @@ if len(st.session_state.df_total) != 0:
 
     )
 
-
-    # Add hover tooltip to show confidence intervals
-
     # Show the plot
     st.plotly_chart(fig, use_container_width=False)
 
@@ -418,6 +442,35 @@ if len(list(st.session_state.outcome_dic_total.keys())) != 0:
             st.title("Confusion Matrix Analysis", help="View the confusion matrix for each ROC curve")
             plot_and_save_confusion_matrix_rate(st.session_state.df_total, f'{exp}-{test}-{algo}-{outcome}-{test_type}') # gives the confusion matrix based on rates (TPR, FPR, etc.)
 
-    # button to reset the table
-    #if st.button('Clear All Plots'):
-        #st.session_state.outcome_options = []
+    
+    st.title("SHAP Value Table", help="View the SHAP Values for all features used for each algorithim and outcome.")
+    
+    # get the file path for the SHAP table and upload it
+    try:
+        shap_path = results.find_one({"exp_name": exp, "test set": test})['SHAP Table']
+    except:
+        try:
+            shap_path = os.path.join("Results", exp, f"{exp}_avg_shap_values.xlsx")
+        except:
+            st.error("No SHAP Table for this experiment exists")
+            shap_path = None
+    
+    if shap_path is not None:
+        shap_df = pd.read_excel(shap_path) # upload table
+        st.subheader(f"For selected algorithm {algo} and outcome {outcome} (Values Sorted)")
+        selected_row = shap_df[(shap_df['Algorithm'] == algo) & (shap_df['Outcome'] == outcome)].dropna(axis=1, how='all')  # drop all empty columns/features
+        first_two_cols = selected_row[['Algorithm', 'Outcome']] # Separate the first two columns
+
+        # Separate the remaining columns and sort them by value
+        cols_to_sort = selected_row.iloc[:, 2:] # Select all columns from the third one onwards
+        sorted_cols = cols_to_sort.iloc[0].sort_values(ascending=False).to_frame().T # Sort values and transpose back to a row
+        selected_row_sorted = pd.concat([first_two_cols, sorted_cols], axis=1) # Concatenate the first two columns with the sorted remaining columns
+        st.write(selected_row_sorted) # display on app interface
+
+        st.subheader("Overall Table")
+        indexes = shap_df.columns[:2] # preserve the first two column's postions
+        features = shap_df.columns[2:] 
+        feature_ordered = (shap_df[features].notna().sum().sort_values(ascending=False).index) # reshuffle columns with more filled values move left
+        shap_df_final = shap_df[list(indexes) + list(feature_ordered)] # Concatenate the first two columns with the remaining columns
+        st.write(shap_df_final) # display on app interface
+    

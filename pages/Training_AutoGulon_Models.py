@@ -278,6 +278,9 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
     # models dictonary
     models_dictonary = {}
 
+    # dictonary to show excluded columns
+    removed_label_cols = {}
+
     st.write("---")
     st.subheader("🚀 Starting Experiment...")
 
@@ -370,6 +373,7 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
 
                 if positives < configuration_dic['min_postives']:
                     st.error(f"Unable to generate model for {outcome} because of lack of postive outcomes in train set.")
+                    removed_label_cols[outcome] = positives
                     continue
                 
                 # finally start prediction
@@ -417,6 +421,11 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
     # save the overall model into a joblib file
     pathway_name = f"{project_folder}/{project_name}_models.joblib"
     joblib.dump(models_dictonary, pathway_name)
+
+    with open(os.path.join(project_folder, "excluded_label_cols_setup.txt"), "w", encoding="utf-8") as file:
+        file.write('Label Columns not included due to too little postive labels (outcome : num postives):  %s' % json.dumps(removed_label_cols, indent=4))
+        file.write('Postive Labels cutoff is:  %s' % configuration_dic['min_postives'])
+    file.close()
 
     # --- 3. Finalize Experiment
     st.write("---")
@@ -656,7 +665,7 @@ else:
 if configure_options == "User Customization":
 
     # min. number of postive cases required for an outcome to be trained on
-    unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a input variable to be consired catagorical:", min_value=1, max_value=100, value=10, help="Min. number of postive cases required for an outcome to be trained on.")
+    unique_value_threshold = st.number_input("Enter the minimum unique value threshold for a numerical input variable to be consired catagorical:", min_value=1, max_value=100, value=10, help="Min. number of postive cases required for an outcome to be trained on.")
 
     # cutoff type for binary classification
     threshold_type = st.selectbox("Optimal Cutoff Threshold Method", ['youden', 'mcc', 'ji', 'f1'], help="Cutoff type for binary classification.")
