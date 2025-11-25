@@ -2163,6 +2163,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         ground_truth_test_list = []
         sum_conf_matrix_train = None
         sum_conf_matrix_test = None
+        sorted_shap_importance_dfs = [] # list of dataframes to store SHAP values for all features
 
         # Loop 10 times in StratifiedKFold
         for fold, (train_idx, test_idx) in enumerate(RepeatedStratifiedKFold(n_splits=options['CV'], n_repeats=options['n_repeats'], random_state=42).split(X_train, y_train)):
@@ -2288,6 +2289,29 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             metric_dic_train, _ = test_and_save_results(estimator, X_train_fold, y_train_fold, threshold_type, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
             metric_dic_test, _ = test_and_save_results(estimator, X_test_fold, y_test_fold, threshold_type, algorithm_folder, algorithm, label_col, roc=False, is_shap=False)
 
+            # get the SHAP values
+            print(X_test_fold.shape)
+            explainer = shap.Explainer(estimator.predict, X_test_fold)
+            shap_values_fold = explainer(X_test_fold)
+            print(shap_values_fold.shape)
+
+           # Get the list of feature names
+            feature_names_list = shap_values_fold.feature_names
+            #st.write(feature_names_list)
+            # Get the SHAP values for the instance
+            shap_values_array = np.abs(shap_values_fold.values)
+            #st.write(shap_values_array)
+            # Create a table of feature names and importance
+            shap_importance_df = pd.DataFrame(
+                shap_values_array,
+                columns=feature_names_list
+            )
+
+            # Sort shap_importance_df
+            #sorted_shap_importance_df = shap_importance_df #shap_importance_df.sort_values("mean_abs_shap", ascending=False)
+            #st.write(shap_importance_df)
+            sorted_shap_importance_dfs.append(shap_importance_df)
+            
             predictions_train = [1 if p >= metric_dic_train['cutoff'] else 0 for p in probas_train[:, 1]] # predict with train set
             predictions_test = [1 if p >= metric_dic_test['cutoff'] else 0 for p in probas_test[:, 1]] # predict with test set
 
@@ -2334,6 +2358,11 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         
         st.write(f"Training with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
         f.write(f"\nTraining with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
+
+        # average out the SHAP values
+        avg_shap_table = pd.concat(sorted_shap_importance_dfs, ignore_index=True).mean().to_frame().T
+        st.write(f"Average SHAP Table for {label_col}")
+        st.write(avg_shap_table)
 
         #st.write(ground_truth_train_list)
         #st.write(len(ground_truth_train_list))
@@ -2404,6 +2433,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         algo_dictonary[label_col]["Probabilities"]["Train"] = probas_train_list
         algo_dictonary[label_col]["Probabilities"]["Test"] = probas_test_list
 
+        algo_dictonary[label_col]["Avg. SHAP Values"] = avg_shap_table
+
         #algo_dictonary[label_col]["Predictions"]["Train"] = predictions_train_list
         #algo_dictonary[label_col]["Predictions"]["Test"] = predictions_test_list
 
@@ -2416,8 +2447,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         file.write('Label Columns not included due to too little postive labels:\n  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('\nThreshold was number of values == 1 is less than 10')
     
-    avg_cpu_info = total_cpu_info / len(filtered_label_cols)
-    avg_mem_info = total_mem_info / len(filtered_label_cols)
+    avg_cpu_info = total_cpu_info / len(filtered_label_cols) if len(filtered_label_cols) > 0 else 0
+    avg_mem_info = total_mem_info / len(filtered_label_cols) if len(filtered_label_cols) > 0 else 0
     print(f"Total time it took to train {algorithm}: {total_time} seconds")
     with open(os.path.join(algorithm_folder, "time_cpu_meme_info.txt"), "w", encoding="utf-8") as file:
         file.write(f"Total time it took to train {algorithm}: {total_time} seconds")

@@ -1354,7 +1354,7 @@ def generate_joblib_model(directory_path):
                         df_array_res_train = joblib.load(os.path.join(content_path, outcome, array_train_name))
                         model_dic[algorithm][outcome]['Train Set Res Array'] = df_array_res_train
                         #print("           Train Set Res Array: ",df_array_res_train)
-                        st.write("We got Model Saved!")
+                        #st.write("We got Model Saved!")
  
                             
     return model_dic, input_cols_dic
@@ -1587,3 +1587,38 @@ def generate_congfig_file(exp_name, algorithims, threshold_type, options):
     #st.write("Configuration_dic : ", configuration_dic)
     
     return configuration_dic
+
+
+def generate_shap_table(results_dictonary, project_name):
+    table_name = os.path.join("Results", project_name, f"{project_name}_avg_shap_values.xlsx")
+
+    overall_table = pd.DataFrame() # combine all SHAP tables
+    
+    algorithms = list(results_dictonary.keys()) # loop throught every algorithm
+    for algorithm in algorithms:
+
+        outcomes = list(results_dictonary[algorithm].keys()) # loop through every outcome
+        for outcome in outcomes:
+
+            avg_shap_table = results_dictonary[algorithm][outcome]["Avg. SHAP Values"]
+
+            # add index columns based on algorithm and outcome
+            avg_shap_table.insert(loc=0, column='Outcome', value=outcome)
+            avg_shap_table.insert(loc=0, column='Algorithm', value=algorithm)
+
+            st.write(avg_shap_table)
+
+            overall_table = pd.concat([overall_table, avg_shap_table], ignore_index=True) # add up table
+
+    st.write("SHAP Table")
+    st.write(overall_table)
+
+    # save the SHAP table to folder system
+    overall_table.to_excel(table_name, index=False, engine='openpyxl')
+    overall_table.to_excel(table_name, index=False)
+    overall_table.to_excel(table_name, index=False)
+    expand_cell_excel(table_name)
+    wrap_text_excel(table_name)
+    grid_excel(table_name)
+
+    return overall_table, table_name # return both the table and the file path for it
