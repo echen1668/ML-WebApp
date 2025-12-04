@@ -380,11 +380,12 @@ def generate_results_table(results_dictonary, outcomes):
         train_metrics = ['TP (Train)', 'FP (Train)', 'TN (Train)', 'FN (Train)']
 
         for metric in train_metrics: # add training confusion matrix numbers if they exist. (Train-Test)/Train %
-            if metric in list(outcomes[outcome]['evaluation'].keys()):
-                new_row[metric] = outcomes[outcome]['evaluation'][metric]
+            if metric in list(results_dictonary[outcome]['evaluation'].keys()):
+                new_row[metric] = results_dictonary[outcome]['evaluation'][metric]
 
         # calcuate and add the % change of the train vs. test AUROC score
-        new_row['Train vs. Test AUROC change%'] = ((outcomes[outcome]['evaluation']['AUROC Score (Train)'] - outcomes[outcome]['evaluation']['AUROC Score']) / outcomes[outcome]['evaluation']['AUROC Score (Train)']) * 100
+        if 'AUROC Score (Train)' in list(results_dictonary[outcome]['evaluation'].keys()):
+            new_row['Train vs. Test AUROC change%'] = ((results_dictonary[outcome]['evaluation']['AUROC Score (Train)'] - results_dictonary[outcome]['evaluation']['AUROC Score']) / results_dictonary[outcome]['evaluation']['AUROC Score (Train)']) * 100
             
         # add new row
         rows.append(new_row)
@@ -404,10 +405,10 @@ def plot_feature_importance(feature_importance_dic, directory_name):
     outcomes = list(feature_importance_dic.keys())
     #st.write(f'Outcomes {outcomes}')
     for outcome in outcomes:
-        st.write(f'Outcome {outcome}')
+        #st.write(f'Outcome {outcome}')
         # get the table
         df_feature_importance = feature_importance_dic[outcome]
-        st.write(df_feature_importance)
+        #st.write(df_feature_importance)
         
         # the abs value of feature importance values
         df_feature_importance['importance (abs)'] = df_feature_importance['importance'].abs()
