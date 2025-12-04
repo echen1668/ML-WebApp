@@ -21,6 +21,7 @@ from sklearn.feature_selection import f_classif
 from sklearn.feature_selection import chi2
 from sklearn.feature_selection import SelectPercentile
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.feature_selection import RFECV
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from skopt import BayesSearchCV
 from sklearn.calibration import CalibratedClassifierCV
@@ -40,6 +41,7 @@ import xlsxwriter
 from openpyxl.styles import Alignment, PatternFill, Border, Side
 import csv
 import xlsxwriter
+import math
 import magic 
 import random 
 from random import randint
@@ -93,6 +95,7 @@ algo_shortnames = {
 options_test_set = { # default options dict
         'oneHotEncode' : "True", 
         'Impute': "True", 
+        'impute_strategy': 'mean',
         'cutMissingRows' : "True",
         "cut threshold": 0.60,
         "inf": 'replace with null',
@@ -120,6 +123,7 @@ options_test_set = { # default options dict
 options_default = { # test set options dict
         'oneHotEncode' : "True", 
         'Impute': "True", 
+        'impute_strategy': 'mean',
         'cutMissingRows' : "True",
         "cut threshold": 0.60,
         "inf": 'replace with null',
@@ -343,9 +347,10 @@ def parse_exp_multi_outcomes(df, df_index, unique_value_threshold=10): # Define 
 
     # Select columns of object data type (categorical columns)
     categorical_cols = input_df.select_dtypes('object').columns.tolist()
-
+    
     # Identify discrete numeric columns as categorical if they have fewer unique values than the threshold
     discrete_numeric_cols = [col for col in input_df.select_dtypes(include=np.number).columns if len(input_df[col].unique()) < unique_value_threshold]
+    
     categorical_cols.extend(discrete_numeric_cols)
 
     # Exclude the identified discrete numeric columns from numeric_cols
@@ -465,10 +470,14 @@ def resize_arrays_to_smallest(arrays):
 
     return resized_arrays
 
-# By default, we should cut rows that have missing series of values (cutMissing), impute the data (Impute), and remove very large data values (removeBig)
+# By default, we should cut rows that have missing series of values (cutMissing), deal with inf values, and remove very large data values (removeBig)
 def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMissingRows='True', threshold=0.75, oneHotEncode='True', inf='replace with null', outliers='None', N=20000, QuantileTransformer='False'):
     if oneHotEncode == 'True':
         print("oneHotEncode")
+        # convert all values in categorical columns into strings
+        df[categorical_cols] = df[categorical_cols].astype(str)
+        # Replace placeholders with proper NaN
+        df[categorical_cols] = df[categorical_cols].replace( ["nan", "NaN", "None", "NONE", "<NA>", "null", ""], np.nan)
         # One Hot Encode catagorical variables
         from sklearn.preprocessing import OneHotEncoder
         encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
@@ -479,16 +488,6 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
     else:
         encoder = None
         encoded_cols = None
-    
-    '''
-    if Impute == True:
-        print("Impute")
-        # Impute the remaining missing numeric data
-        from sklearn.impute import SimpleImputer
-        imputer = SimpleImputer(strategy = 'mean')
-        imputer.fit(df[numeric_cols])
-        df[numeric_cols] = imputer.transform(df[numeric_cols])
-    '''
         
     if cutMissingRows == 'True':
         print("cutMissingRows")
@@ -496,60 +495,26 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         # computing number of columns
         cols = len(df.axes[1])
         print("Cuttoff", int(threshold * cols))
-        df = df.dropna(thresh=int(threshold * cols))
-
-    #print(df)
+        df = df.dropna(thresh=int(threshold * cols), subset=input_cols)
 
     if inf == 'replace with null':
         print("replace with null")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df = df.replace([np.inf, -np.inf], np.nan)
     elif inf == 'replace with zero':
         print("replace with zero")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], 0, inplace=True)
-
-    #print(df)
+        df = df.replace([np.inf, -np.inf], 0)
 
     if outliers == 'remove rows':
         print("remove rows")
         # Remove rows that have a value greater than N for any column. Default N is 20000
-        for column  in df[numeric_cols]:
-            df = df.drop(df.index[df[column] > N])
+        mask = (df[numeric_cols] > N).any(axis=1)
+        df = df[~mask]
     elif outliers == 'log':
         print("log")
         # Log values that are greater than N for any column. Default N is 20000
-        df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
-
-    #print(df)
-
-    '''
-    if Scaling == True:
-        print("Scaling")
-        # Scaling the input features for a chosen method. Default is MinMaxScaler.
-        if scalingMethod == 'MinMaxScaler': 
-            print("MinMaxScaler")
-            # This estimator scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one.
-            from sklearn.preprocessing import MinMaxScaler
-            scaler = MinMaxScaler()
-        elif scalingMethod == 'RobustScaler':
-            print("RobustScaler")
-            # This Scaler removes the median and scales the data according to the quantile range (defaults to IQR: Interquartile Range). The IQR is the range between the 1st quartile (25th quantile) and the 3rd quartile (75th quantile).
-            from sklearn.preprocessing import RobustScaler
-            scaler = RobustScaler()
-        elif scalingMethod == 'MaxAbsScaler':
-            print("MaxAbsScaler")
-            # Scale each feature by its maximum absolute value.
-            from sklearn.preprocessing import MaxAbsScaler
-            scaler = MaxAbsScaler()
-        elif scalingMethod == 'StandardScaler':
-            print("StandardScaler")
-            # Standardize features by removing the mean and scaling to unit variance.
-            from sklearn.preprocessing import StandardScaler
-            scaler = StandardScaler()
-        scaler.fit(df[numeric_cols])
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
-    '''
+        df[numeric_cols] = df[numeric_cols].apply(lambda x: np.where(x > N, np.log(x), x))
         
     if QuantileTransformer == 'True':  
         print("QuantileTransformer")
@@ -559,14 +524,6 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         df[numeric_cols] = qt.transform(df[numeric_cols])
     else:
         qt = None
-    '''   
-    if Normalize == 'True':  
-        print("Normalize")
-        # Normalize the data
-        from sklearn.preprocessing import Normalizer
-        normalizer = Normalizer().fit(df[numeric_cols])
-        df[numeric_cols] = normalizer.transform(df[numeric_cols])
-    '''    
     
     return df, input_cols, encoder, encoded_cols, qt
 
@@ -592,7 +549,7 @@ def preprocess_train_test(df, df_test, input_cols, label_cols, numeric_cols, cat
         cols = len(df_test.axes[1])
         print("Number of Inital Columns", cols)
         print("Cuttoff", int(threshold * cols))
-        df = df.dropna(thresh=int(threshold * cols))
+        df = df.dropna(subset=input_cols, thresh=int(threshold * cols))
         df_test = df_test.dropna(thresh=int(threshold * cols))
         print("Number of Final Columns", len(df_test.axes[1]))
         print("Final Test Data Size", len(df_test))
@@ -600,13 +557,13 @@ def preprocess_train_test(df, df_test, input_cols, label_cols, numeric_cols, cat
     if inf == 'replace with null':
         print("replace with null")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df_test.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df = df.replace([np.inf, -np.inf], np.nan)
+        df_test = df_test.replace([np.inf, -np.inf], np.nan)
     elif inf == 'replace with zero':
         print("replace with zero")
         # Replace all inf values with null
-        df.replace([np.inf, -np.inf], 0, inplace=True)
-        df_test.replace([np.inf, -np.inf], 0, inplace=True)
+        df = df.replace([np.inf, -np.inf], 0)
+        df_test = df_test.replace([np.inf, -np.inf], 0)
     #print(df)
 
     if outliers == 'remove rows':
@@ -630,15 +587,7 @@ def preprocess_train_test(df, df_test, input_cols, label_cols, numeric_cols, cat
         qt = QuantileTransformer(output_distribution='normal').fit(df[numeric_cols])
         df[numeric_cols] = qt.transform(df[numeric_cols])
         df_test[numeric_cols] = qt.transform(df_test[numeric_cols])
-    '''    
-    if Normalize == 'True':  
-        print("Normalize")
-        # Normalize the data
-        from sklearn.preprocessing import Normalizer
-        normalizer = Normalizer().fit(df[numeric_cols])
-        df[numeric_cols] = normalizer.transform(df[numeric_cols])
-        df_test[numeric_cols] = normalizer.transform(df_test[numeric_cols])
-    '''
+
     return df, df_test, input_cols
 
 # Split data into input and output sets
@@ -673,42 +622,66 @@ def scaling(df, input_cols, label_cols, numeric_cols, categorical_cols, scalingM
             from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
         scaler.fit(df[numeric_cols])
-        df[numeric_cols] = scaler.transform(df[numeric_cols])
+        #df[numeric_cols] = scaler.transform(df[numeric_cols])
+        df.loc[:, numeric_cols] = scaler.transform(df[numeric_cols])
         
         return df, scaler
 
 #rebalance the imbalanced data with a chosen label
-def rebalance(input_df, label_df, type='RandomUnderSampler', sampling_strategy='auto', k_neighbors=5):
+def rebalance(input_df, label_df, type='RandomUnderSampler', sampling_strategy='auto', sampling_ratio=0.2, k_neighbors=5):
     if type == 'RandomUnderSampler':
         # random undersampling reduces the number of majority class randomly down to the desired ratio against the minority class.
         from imblearn.under_sampling import RandomUnderSampler
-        rebalance = RandomUnderSampler(sampling_strategy=sampling_strategy)
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = RandomUnderSampler(sampling_strategy=sampling_ratio)
+        else:
+            rebalance = RandomUnderSampler(sampling_strategy=sampling_strategy)
+
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)
     elif type == 'RandomOverSampler':
         # Naive random over-sampling.
         from imblearn.over_sampling import RandomOverSampler
-        rebalance = RandomOverSampler(sampling_strategy=sampling_strategy)
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = RandomOverSampler(sampling_strategy=sampling_ratio)
+        else:
+            rebalance = RandomOverSampler(sampling_strategy=sampling_strategy)
+
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)
     elif type == 'SMOTE':
         # SMOTE is a technique to up-sample the minority classes while avoiding overfitting.
         from imblearn.over_sampling import SMOTE
-        rebalance = SMOTE(sampling_strategy=sampling_strategy, k_neighbors=k_neighbors)
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = SMOTE(sampling_strategy=sampling_ratio, k_neighbors=k_neighbors)
+            print("We hit here!")
+        else:
+            rebalance = SMOTE(sampling_strategy=sampling_strategy, k_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)    
     elif type == 'ADASYN':
         # Adaptive Synthetic (ADASYN) algorithm. This method is similar to SMOTE but it generates different number of samples depending on an estimate of the local distribution of the class to be oversampled.
         from imblearn.over_sampling import ADASYN
-        rebalance = ADASYN(sampling_strategy=sampling_strategy, n_neighbors=k_neighbors)
+        if sampling_strategy == 'ratio': # if sampling_strategy is a ratio, then pass what the ratio number actually is
+            rebalance = ADASYN(sampling_strategy=sampling_ratio, n_neighbors=k_neighbors)
+        else:    
+            rebalance = ADASYN(sampling_strategy=sampling_strategy, n_neighbors=k_neighbors)
         input_df2, label_df2 = rebalance.fit_resample(input_df, label_df)                   
     else:
         print("Cannot do")
         input_df2, label_df2 = input_df, label_df
         
-    return input_df2, label_df2  
+    #st.write(rebalance)
+    return input_df2, label_df2 
 
 
-def feature_selection(input_df, output_df, method="MRMR", type='f_classif', N=20, per=10):
+def feature_selection(input_df, output_df, method="MRMR", type='f_classif', N=20, per=10, cv=10, estimator=None):
+    print("FeatureSelection")
     if method=="MRMR":
         selected_features = mrmr_classif(X=input_df, y=output_df, K=N)
+        input_df_new = input_df[selected_features]
+    elif method=="RFECV":
+        selector = RFECV(estimator, step=1, cv=cv, min_features_to_select=N)
+        selector = selector.fit(input_df, output_df)
+        selected_features = input_df.columns[selector.support_]
+        #st.write(selected_features)
         input_df_new = input_df[selected_features]
     elif method=="SelectKBest":
         if type=='f_classif':
@@ -833,6 +806,10 @@ def upload_data(filename):
     else:
         print('.csv')
         raw_df = pd.read_csv(filename)
+
+    if 'Unnamed: 0' in raw_df.columns: # remove Unnamed: 0 if it exists
+        raw_df = raw_df.drop(columns=['Unnamed: 0'])
+
     return raw_df.copy()
 
 def load_data(filename, data):
@@ -843,15 +820,17 @@ def load_data(filename, data):
     else:
         df = pd.read_excel(data)
 
+    if 'Unnamed: 0' in df.columns: # remove Unnamed: 0 if it exists
+        df = df.drop(columns=['Unnamed: 0'])
     return df
 
 def save_data(filename, data, save_path):
     if filename.endswith('.xlsx'):
-        data.to_excel(save_path)
+        data.to_excel(save_path, index=False)
     elif filename.endswith('.csv'):
-        data.to_csv(save_path)
+        data.to_csv(save_path, index=False)
     else:
-        data.to_csv(save_path)
+        data.to_csv(save_path, index=False)
 
 
 
@@ -1375,7 +1354,7 @@ def generate_joblib_model(directory_path):
                         df_array_res_train = joblib.load(os.path.join(content_path, outcome, array_train_name))
                         model_dic[algorithm][outcome]['Train Set Res Array'] = df_array_res_train
                         #print("           Train Set Res Array: ",df_array_res_train)
-                        st.write("We got Model Saved!")
+                        #st.write("We got Model Saved!")
  
                             
     return model_dic, input_cols_dic
@@ -1404,6 +1383,7 @@ def generate_results_table(results_dictonary):
                       'Accuracy': outcomes[outcome]['evaluation']['Accuracy'],
                       'Precision': outcomes[outcome]['evaluation']['precision'],
                       'Recall': outcomes[outcome]['evaluation']['recall'],
+                      'F1 Score': outcomes[outcome]['evaluation']['f1 score'],
                       'TPR': outcomes[outcome]['evaluation']['TPR'], # same as Sensitivity 
                       'TNR': outcomes[outcome]['evaluation']['TNR'], # same as Specificity 
                       'FPR': outcomes[outcome]['evaluation']['FPR'], 
@@ -1422,6 +1402,16 @@ def generate_results_table(results_dictonary):
                       'AUROC CI Upper (Train)': outcomes[outcome]['evaluation']['AUROC CI High (Train)'],
                       'P (Train)': outcomes[outcome]['evaluation']['P (Train)'],
                       'N (Train)': outcomes[outcome]['evaluation']['N (Train)']}
+            
+            # Optionally add training confusion matrix values if available
+            train_metrics = ['TP (Train)', 'FP (Train)', 'TN (Train)', 'FN (Train)']
+
+            for metric in train_metrics: # add training confusion matrix numbers if they exist. (Train-Test)/Train %
+                if metric in list(outcomes[outcome]['evaluation'].keys()):
+                    new_row[metric] = outcomes[outcome]['evaluation'][metric]
+
+            # calcuate and add the % change of the train vs. test AUROC score
+            new_row['Train vs. Test AUROC change%'] = ((outcomes[outcome]['evaluation']['AUROC Score (Train)'] - outcomes[outcome]['evaluation']['AUROC Score']) / outcomes[outcome]['evaluation']['AUROC Score (Train)']) * 100
 
             # add new row
             rows.append(new_row)
@@ -1438,15 +1428,21 @@ def generate_results_table(results_dictonary):
     return results_df
 
 def get_avg_metric(variable, metrics):
+    #st.write(variable)
     values_list = []
     for metric in metrics:
-        values_list.append(metric[variable])
+        if not math.isinf(metric[variable]) and not math.isnan((metric[variable])): # add value to list if it is not inf
+            values_list.append(metric[variable])
 
-    values_avg = sum(values_list) / len(values_list)
+    #st.write(values_list)
+    if len(values_list) > 0:
+        values_avg = sum(values_list) / len(values_list)
+    else:
+        values_avg = np.nan
     return values_avg
 
-# get the average metric scores in results_dictonary values
-def get_avg_results_dic(results_dictonary):
+# get the average metric scores in results_dictonary values. override means the saved ROC scores override the calcuated avg. ROC scores if true
+def get_avg_results_dic(results_dictonary, override=False):
 
     results_dictonary_avg = {}
 
@@ -1484,6 +1480,7 @@ def get_avg_results_dic(results_dictonary):
 
             metric_dic_test['precision'] = get_avg_metric('precision', metrics_test)
             metric_dic_test['recall'] = get_avg_metric('recall', metrics_test)
+            metric_dic_test['f1 score'] = get_avg_metric('f1 score', metrics_test)
 
             metric_dic_test['TP'] = get_avg_metric('TP', metrics_test)
             metric_dic_test['FP'] = get_avg_metric('FP', metrics_test)
@@ -1499,7 +1496,23 @@ def get_avg_results_dic(results_dictonary):
 
             metric_dic_test['P (Train)'] = get_avg_metric('P', metrics_train)
             metric_dic_test['N (Train)'] = get_avg_metric('N', metrics_train)
+            
+            metric_dic_test['TP (Train)'] = get_avg_metric('TP', metrics_train)
+            metric_dic_test['FP (Train)'] = get_avg_metric('FP', metrics_train)
+            metric_dic_test['TN (Train)'] = get_avg_metric('TN', metrics_train)
+            metric_dic_test['FN (Train)'] = get_avg_metric('FN', metrics_train)
 
+            if override==True: # override ROC Scores and their CIs if override = True
+                roc_scores_train = values['ROC_Scores']['Train']
+                roc_scores_test = values['ROC_Scores']['Test']
+
+                metric_dic_test['AUROC Score'] = roc_scores_test[0]
+                metric_dic_test['AUROC CI Low'] = roc_scores_test[1]
+                metric_dic_test['AUROC CI High'] = roc_scores_test[2]
+
+                metric_dic_test['AUROC Score (Train)'] = roc_scores_train[0]
+                metric_dic_test['AUROC CI Low (Train)'] = roc_scores_train[1]
+                metric_dic_test['AUROC CI High (Train)'] = roc_scores_train[2]
 
             results_dictonary_avg[algo][outcome]['evaluation'] = metric_dic_test
 
@@ -1510,6 +1523,7 @@ def get_avg_results_dic(results_dictonary):
             results_dictonary_avg[algo][outcome]['conf_matrix'] = {}
             results_dictonary_avg[algo][outcome]['conf_matrix']['Train'] = values['Conf_Matrix']['Train'].tolist()
             results_dictonary_avg[algo][outcome]['conf_matrix']['Test'] = values['Conf_Matrix']['Test'].tolist()
+            #st.write(f"Avg. Conf. Matrix Final: {results_dictonary_avg[algo][outcome]['conf_matrix']['Test']}")
     
     #st.write(results_dictonary_avg)
     return results_dictonary_avg
@@ -1573,3 +1587,38 @@ def generate_congfig_file(exp_name, algorithims, threshold_type, options):
     #st.write("Configuration_dic : ", configuration_dic)
     
     return configuration_dic
+
+
+def generate_shap_table(results_dictonary, project_name):
+    table_name = os.path.join("Results", project_name, f"{project_name}_avg_shap_values.xlsx")
+
+    overall_table = pd.DataFrame() # combine all SHAP tables
+    
+    algorithms = list(results_dictonary.keys()) # loop throught every algorithm
+    for algorithm in algorithms:
+
+        outcomes = list(results_dictonary[algorithm].keys()) # loop through every outcome
+        for outcome in outcomes:
+
+            avg_shap_table = results_dictonary[algorithm][outcome]["Avg. SHAP Values"]
+
+            # add index columns based on algorithm and outcome
+            avg_shap_table.insert(loc=0, column='Outcome', value=outcome)
+            avg_shap_table.insert(loc=0, column='Algorithm', value=algorithm)
+
+            st.write(avg_shap_table)
+
+            overall_table = pd.concat([overall_table, avg_shap_table], ignore_index=True) # add up table
+
+    st.write("SHAP Table")
+    st.write(overall_table)
+
+    # save the SHAP table to folder system
+    overall_table.to_excel(table_name, index=False, engine='openpyxl')
+    overall_table.to_excel(table_name, index=False)
+    overall_table.to_excel(table_name, index=False)
+    expand_cell_excel(table_name)
+    wrap_text_excel(table_name)
+    grid_excel(table_name)
+
+    return overall_table, table_name # return both the table and the file path for it

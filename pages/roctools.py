@@ -311,6 +311,8 @@ def full_roc_curve(y_true, y_pred, alpha=0.95, index='youden'):
     cis_ppv = proportion_confidence_interval(TP, n, z)
 
     # Youden index cutoff: maximum tpr + tnr
+    #st.write(f'TPR: {tpr}')
+    #st.write(f'TNR: {tnr}')
     max_index_youden = np.argmax(tpr + tnr)
     print("Youden Index:", max_index_youden)
     cutoff_youden = thresholds[max_index_youden]
@@ -372,6 +374,7 @@ def full_roc_curve(y_true, y_pred, alpha=0.95, index='youden'):
 
     res['precision'] = res['TP']/(res['TP'] + res['FP'])
     res['recall'] = res['TP']/(res['TP'] + res['FN'])
+    res['f1 score'] = 2 * ((res['precision'] * res['recall']) / (res['precision'] + res['recall']))
 
     return res, res_array
 
