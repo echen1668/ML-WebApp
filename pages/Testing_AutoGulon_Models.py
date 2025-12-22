@@ -650,8 +650,8 @@ if model_path is not None:
         if "Select All" in selected_outcomes:
             selected_outcomes = outcomes
 
-        st.write(selected_outcomes)
-        st.write(len(selected_outcomes))
+        #st.write(selected_outcomes)
+        #st.write(len(selected_outcomes))
 
         # Initialize session state variable
         if "show_values_models_dic" not in st.session_state:
