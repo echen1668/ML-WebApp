@@ -2065,7 +2065,8 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         joblib.dump(params, bestparams)
 
         # save the results in folders
-        algorithm_folder = os.path.join("Results", project_name, data_name, f'{algorithm} (results)', label_col)
+        #algorithm_folder = os.path.join("Results", project_name, data_name, f'{algorithm} (results)', label_col)
+        algorithm_folder = os.path.join("Results", project_name, data_name, f'{algorithm} (results)', Common_Tools.sanitize_filename(label_col))
         os.makedirs(algorithm_folder, exist_ok=True)
         
         # test the model
