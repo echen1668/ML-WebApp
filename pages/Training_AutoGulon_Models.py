@@ -294,7 +294,7 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
         index_set = data_sets["Index Set"]
 
         # save the data
-        save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
+        #save_data(train_set['Name'], train_set['Data'], os.path.join(project_folder, train_set['Name']))
         save_data(index_set['Name'], index_set['Data'], os.path.join(project_folder, index_set['Name']))
 
         if train_set['Name'] not in data_names_train:
