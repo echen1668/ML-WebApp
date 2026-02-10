@@ -351,6 +351,8 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
 
     # --- 2. Training Models ---
     with st.spinner("Training the Models..."):
+        t2 = time.time()
+
         for outcome in label_cols:
             with st.spinner(f'Working with outcome: {outcome}'):
                 if outcome not in df_train.columns:
@@ -415,7 +417,16 @@ def train_and_generate_models(data_sets, project_name, configuration_dic, unique
 
             
             st.success(f'Training with outcome: {outcome} Done!')
-                
+            
+        t1 = time.time() 
+        st.write(f'The Time Parallel Computing Took :{t1-t2} seconds')
+
+        # save a textfile telling the time it took to test models
+        filename_time = os.path.join(project_folder, "testing_time.txt")
+        f = open(filename_time, "w", encoding="utf-8")
+        f.write(f'The Time Parallel Computing Took :{t1-t2} seconds')
+        f.close() 
+              
     st.success(f'Training is Complete!')
 
     # save the overall model into a joblib file
@@ -604,14 +615,14 @@ if data_options == "Upload a dataset" and main_uploaded_file:
 
     df_train = load_data(train_set, main_uploaded_file)
 
-    #st.write(df_train.head())  # Display the first few rows
+    st.write(df_train)  # Display the table
 
     data_sets["Training Set"] = {}
     data_sets["Training Set"]["Name"] = main_uploaded_file.name
     data_sets["Training Set"]["Data"] = df_train
 elif data_name_train:
     df_train = upload_data(os.path.join("Data Sets",data_name_train))
-    #st.write(df_train.head())  # Display the first few rows
+    st.write(df_train)  # Display the table
     data_sets["Training Set"] = {}
     data_sets["Training Set"]["Name"] = data_name_train
     data_sets["Training Set"]["Data"] = df_train

@@ -149,11 +149,21 @@ if not cookies.ready():
     st.stop()
 
 # Check cookies first
-if "client_name" in cookies:
-    st.session_state["client_name"] = cookies["client_name"]
+#if "client_name" in cookies:
+    #st.session_state["client_name"] = cookies["client_name"]
     #st.write(cookies["client_name"])
 #else:
     #st.error("No found")
+
+def get_client_name():
+    try:
+        if cookies.ready() and "client_name" in cookies:
+            return cookies["client_name"]
+    except Exception:
+        pass
+    return None
+
+st.session_state["client_name"] = get_client_name()
 
 # then check in session state
 if "client_name" not in st.session_state:
