@@ -35,7 +35,7 @@ from pymongo import MongoClient
 # import module
 import streamlit as st
 from streamlit_cookies_manager import EncryptedCookieManager
-from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel
+from Common_Tools import cleanup_stale_jobs, wrap_text_excel, expand_cell_excel, grid_excel
 from roctools import full_roc_curve, plot_roc_curve
 
 # --- Page Configuration ---
@@ -56,10 +56,6 @@ if st.button('Back'):
     outcome_dic = None
     st.session_state.outcome_options = []
     st.switch_page("pages/Visualize_Options.py")  # Redirect to the main back
-
-# Title
-st.title("❌ Visualize ML Results (Sklearn) (Cross Validation)")
-st.write("This page helps you visualize the results of your ML model(s). This is for Cross Validation")
 
 # Check if client_name was passed
 cookies = EncryptedCookieManager(prefix="mlhub_", password="some_secret_key")
@@ -166,8 +162,26 @@ models = db.models
 # create the results collection if it does not already exists
 results = db.results
 
+# create the jobs collection if it does not already exists yet
+jobs = db.jobs
+db.jobs.create_index("expires_at", expireAfterSeconds=0)
+cleanup_stale_jobs(db) # clean up an 'zombie jobs'
+
 # get all unique exp. names from results collection
 exp_names = db.results.distinct("exp_name", {"type": "Native-CV"})
+
+# get all current jobs running and check their status
+jobs_list = list(db.jobs.find({}, {"_id": 0}).sort("created_at", -1))
+with st.expander("💼 Show All Job Status"):
+    for job in jobs_list:
+        st.markdown(f"### {job['exp_name']}")
+        for key, value in job.items():
+            st.write(f"**{key}**:", value)
+        st.divider()
+
+# Title
+st.title("❌ Visualize ML Results (Sklearn) (Cross Validation)")
+st.write("This page helps you visualize the results of your ML model(s). This is for Cross Validation")
 
 # Dropdown to select the experiment to display results from
 exp_name = st.selectbox("Select a saved ML experiment", exp_names, help="Select a ML experiment from the database.")

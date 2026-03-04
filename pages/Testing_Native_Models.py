@@ -33,7 +33,7 @@ import pprint
 import pymongo
 from pymongo import MongoClient
 from streamlit_cookies_manager import EncryptedCookieManager
-from Common_Tools import wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data, save_data, load_data
+from Common_Tools import cleanup_stale_jobs, wrap_text_excel, expand_cell_excel, grid_excel, split, upload_data, save_data, load_data
 from roctools import full_roc_curve, plot_roc_curve
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
@@ -103,6 +103,11 @@ db = get_db(client_name)
 
 # create tables for models in the databse
 models = db.models
+
+# create the results if it does not already exists
+jobs = db.jobs
+db.jobs.create_index("expires_at", expireAfterSeconds=0)
+cleanup_stale_jobs(db) # clean up an 'zombie jobs'
 
 # create the results if it does not already exists
 results = db.results
@@ -215,7 +220,10 @@ def plot_shap(shap_values, X_test, features, algo_name, outcome_name, algorithm_
     #with mpl_lock:
     max_display = min(10, X_test[features].shape[1])
 
-    shap.initjs()  # harmless for matplotlib plots
+    #shap.initjs()  # harmless for matplotlib plots
+
+    # Create explicit figure + axis FIRST
+    fig, ax = plt.subplots(figsize=(10, 6))
 
     # IMPORTANT: do NOT create fig/ax beforehand
     shap.summary_plot(
@@ -228,22 +236,24 @@ def plot_shap(shap_values, X_test, features, algo_name, outcome_name, algorithm_
     )
 
     # Now get the figure SHAP actually used
-    fig = plt.gcf()
-    fig.set_size_inches(10, 6)
+    #fig = plt.gcf()
+    #fig.set_size_inches(10, 6)
     fig.suptitle(f"SHAP Values for {outcome_name} on {algo_name}")
-
-    # Save to buffer
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=700, bbox_inches="tight")
-    buf.seek(0)
-    image_data = buf.read()
 
     # Save to disk
     filename_shap = os.path.join(
         algorithm_folder,
         f"{algo_name}_{sanitize_filename(outcome_name)}_shap.png"
     )
-    #fig.savefig(filename_shap, dpi=700, bbox_inches="tight")
+
+    fig.savefig(filename_shap, dpi=700, bbox_inches="tight")
+    
+    # Save to buffer
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=700, bbox_inches="tight")
+    buf.seek(0)
+    image_data = buf.read()
+
 
     plt.close(fig)
 
@@ -741,6 +751,15 @@ def test_models(model_dic, configuration, all_algorithms, all_outcomes, input_co
 # back button to return to main page
 if st.button('Back'):
     st.switch_page("pages/Testing_Models_Options.py")  # Redirect to the main back
+
+# get all current jobs running and check their status
+jobs_list = list(db.jobs.find({}, {"_id": 0}).sort("created_at", -1))
+with st.expander("💼 Show All Job Status"):
+    for job in jobs_list:
+        st.markdown(f"### {job['exp_name']}")
+        for key, value in job.items():
+            st.write(f"**{key}**:", value)
+        st.divider()
 
 # Title
 st.title("🧪 Upload and Test ML Model (Sklearn)")
