@@ -1815,8 +1815,8 @@ def multi_outcome_hyperparameter_binary(df, input_cols, label_cols, numeric_cols
         file.write('Label Columns not included due to too little postive labels:  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('Threshold was number of values == 1 is less than 10')
     
-    avg_cpu_info = total_cpu_info / len(filtered_label_cols)
-    avg_mem_info = total_mem_info / len(filtered_label_cols)
+    avg_cpu_info = total_cpu_info / len(filtered_label_cols) if len(filtered_label_cols) > 0 else 0
+    avg_mem_info = total_mem_info / len(filtered_label_cols) if len(filtered_label_cols) > 0 else 0
     print(f"Total time it took to train {algorithm}: {total_time} seconds")
     with open(os.path.join(algorithm_folder, "time_cpu_meme_info.txt"), "w", encoding="utf-8") as file:
         file.write(f"Total time it took to train {algorithm}: {total_time} seconds")
@@ -2086,8 +2086,8 @@ def multi_outcome_hyperparameter_binary_train_and_test(df, input_cols, label_col
         file.write('Label Columns not included due to too little postive labels:  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('Threshold was number of values == 1 is less than 10')
     
-    avg_cpu_info = total_cpu_info / len(filtered_label_cols)
-    avg_mem_info = total_mem_info / len(filtered_label_cols)
+    avg_cpu_info = total_cpu_info / len(filtered_label_cols) if filtered_label_cols else 0
+    avg_mem_info = total_mem_info / len(filtered_label_cols) if filtered_label_cols else 0
     print(f"Total time it took to train {algorithm}: {total_time} seconds")
     with open(os.path.join(algorithm_folder, "time_cpu_meme_info.txt"), "w", encoding="utf-8") as file:
         file.write(f"Total time it took to train {algorithm}: {total_time} seconds")
@@ -2127,8 +2127,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         # Before the cross-validation loop
         classes = y_train.unique()
 
-        #st.write("Classes: ", classes) 
-        #st.write("Count: ", y_train.value_counts())
+        #print("Classes: ", classes) 
+        #print("Count: ", y_train.value_counts())
 
         # Sanitize the folder name
         algorithm_folder = os.path.join(project_folder, experiment_name, algorithm, Common_Tools.sanitize_filename(label_col))
@@ -2144,15 +2144,14 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         f.write("\Data Size : %s"% len(X_train))
         if (y_train == 1).sum() < 10:
             print("Too little postive outcomes to predict (after removing early cases)")
-            f.write("\nToo little postive outcomes to predict (after removing early cases)")
-            st.error(f"Too little postive outcomes to predict outcome: {label_col} on {algorithm}.") 
+            f.write("\nToo little postive outcomes to predict (after removing early cases)") 
             removed_label_cols.append(label_col)
             continue
             
         #print(X_train)
         #print(y_train)
 
-        st.write(f"Training with Algorithm: {algorithm} for Outcome: {label_col} has started...")
+        print(f"Training with Algorithm: {algorithm} for Outcome: {label_col} has started...")
 
         probas_train_list = []
         probas_test_list = []
@@ -2173,7 +2172,6 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             estimator, param_vals = get_classifier(algorithm, param_vals_raw)
 
             print(fold)
-            #st.write(f'Fold: {fold}')
             f.write("\nFold: %s"%fold)
 
             #split training data into train and test sets
@@ -2188,7 +2186,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
                 # Drop all-NaN columns (cannot be imputed with mean)
                 #all_nan_cols = X_train_fold.columns[X_train_fold.isna().all()].tolist()
                 #if all_nan_cols:
-                    #st.write(f"\nDropped all-NaN columns before imputation: {all_nan_cols}")
+
                     #X_train_fold = X_train_fold.drop(columns=all_nan_cols)
                     #X_test_fold = X_test_fold.drop(columns=all_nan_cols, errors='ignore')
 
@@ -2241,19 +2239,19 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
 
             # Rebalance Data if chosen
             if options['rebalance'] == "True":
-                #st.write('rebalance')
+                print('rebalance')
                 X_train_fold, y_train_fold = Common_Tools.rebalance(X_train_fold, y_train_fold, type=options['rebalance_type'], sampling_strategy=options['sampling_strategy'], sampling_ratio=options['sampling_ratio'], k_neighbors=options['k_neighbors'])
                 f.write("\nRebalance is Done.")
 
             # Feature Selection if chosen
             if options['FeatureSelection'] == "True":
-                #st.write("FeatureSelection")
+                print("FeatureSelection")
                 f.write("\nFeature Selection: %s"% options['method'])
                 if options['method'] not in ['MRMR', 'VarianceThreshold', 'RFECV']:
                     featureSelection_methods = options['method'].split("-")
                 else:
                     featureSelection_methods = [options['method'], None]
-                #st.write(featureSelection_methods)
+
                 X_train_fold, selected_features = Common_Tools.feature_selection(X_train_fold, y_train_fold, method=featureSelection_methods[0], type=featureSelection_methods[1], N=options['N_features'], cv=options['CV'], estimator=estimator)
                 #print(selected_features)
                 X_test_fold = X_test_fold[selected_features]
@@ -2275,15 +2273,13 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
 
             train_size = len(X_train_fold)
             label_train_counts = y_train_fold.value_counts()
-            #st.write(f'Train Size: {train_size}')
-            #st.write(f'Train Counts: {label_train_counts}')
+
             f.write(f'Train Size: {train_size}')
             f.write(f'Train Counts: {label_train_counts}')
 
             test_size = len(X_test_fold)
             label_test_counts = y_test_fold.value_counts()
-            #st.write(f'Test Size: {test_size}')
-            #st.write(f'Test Counts: {label_test_counts}')
+
             f.write(f'Test Size: {test_size}')
             f.write(f'Test Counts: {label_test_counts}')
 
@@ -2298,10 +2294,10 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
 
            # Get the list of feature names
             feature_names_list = shap_values_fold.feature_names
-            #st.write(feature_names_list)
+
             # Get the SHAP values for the instance
             shap_values_array = np.abs(shap_values_fold.values)
-            #st.write(shap_values_array)
+
             # Create a table of feature names and importance
             shap_importance_df = pd.DataFrame(
                 shap_values_array,
@@ -2310,7 +2306,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
 
             # Sort shap_importance_df
             #sorted_shap_importance_df = shap_importance_df #shap_importance_df.sort_values("mean_abs_shap", ascending=False)
-            #st.write(shap_importance_df)
+
             sorted_shap_importance_dfs.append(shap_importance_df)
             
             predictions_train = [1 if p >= metric_dic_train['cutoff'] else 0 for p in probas_train[:, 1]] # predict with train set
@@ -2357,7 +2353,7 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
             metric_dic_train_list.append(metric_dic_train)
             metric_dic_test_list.append(metric_dic_test)
         
-        st.write(f"Training with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
+        print(f"Training with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
         f.write(f"\nTraining with Algorithm: {algorithm} for Outcome: {label_col} is Complete!")
 
         # average out the SHAP values
@@ -2365,19 +2361,14 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         st.write(f"Average SHAP Table for {label_col}")
         st.write(avg_shap_table)
 
-        #st.write(ground_truth_train_list)
-        #st.write(len(ground_truth_train_list))
-        #for ground_truth_train in ground_truth_train_list:
-            #st.write(len(ground_truth_train))
-        #st.write(probas_train_list)
         # plot the average ROC curves
         sanitize_label_col = Common_Tools.sanitize_filename(label_col)
-        #st.write(sanitize_label_col) os.path.join("Results", project_name, data_name)
+
         results_folder = os.path.join("Results", project_name, experiment_name, algorithm, sanitize_label_col)
         os.makedirs(results_folder, exist_ok=True)
         roc_train_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Train).png")
         roc_test_filename = os.path.join(results_folder, f"AUROC_Graph_{algorithm}_{sanitize_label_col}_(Test).png")
-        #st.write(roc_train_filename)
+
         x = len(roc_train_filename)
         #st.write(f"Length of ROC file path name is {x}")
         # check if path names are too long
@@ -2448,8 +2439,8 @@ def multi_outcome_cv(df, input_cols, label_cols, numeric_cols, categorical_cols,
         file.write('Label Columns not included due to too little postive labels:\n  %s \n(%s postive cases)\n' % (removed_label_cols, (output_df[removed_label_cols] == 1).sum()))
         file.write('\nThreshold was number of values == 1 is less than 10')
     
-    avg_cpu_info = total_cpu_info / len(filtered_label_cols) if len(filtered_label_cols) > 0 else 0
-    avg_mem_info = total_mem_info / len(filtered_label_cols) if len(filtered_label_cols) > 0 else 0
+    avg_cpu_info = total_cpu_info / len(filtered_label_cols) if filtered_label_cols else 0
+    avg_mem_info = total_mem_info / len(filtered_label_cols) if filtered_label_cols else 0
     print(f"Total time it took to train {algorithm}: {total_time} seconds")
     with open(os.path.join(algorithm_folder, "time_cpu_meme_info.txt"), "w", encoding="utf-8") as file:
         file.write(f"Total time it took to train {algorithm}: {total_time} seconds")

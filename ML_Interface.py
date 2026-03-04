@@ -1,6 +1,7 @@
 import streamlit as st
 import pymongo
 from pymongo import MongoClient
+from Common_Tools import cleanup_stale_jobs
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -50,6 +51,25 @@ else:
     connected = False
 
 if connected == True:
+
+    # connect to database
+    # create the database if it does not already exists
+    db = client.machine_learning_database
+
+    # create the results if it does not already exists
+    jobs = db.jobs
+    db.jobs.create_index("expires_at", expireAfterSeconds=0) # set up delete function to clean up any inactive jobs
+    cleanup_stale_jobs(db) # clean up an 'zombie jobs'
+    
+    # get all current jobs running and check their status
+    jobs_list = list(db.jobs.find({}, {"_id": 0}).sort("created_at", -1))
+    with st.expander("💼 Show All Job Status"):
+        for job in jobs_list:
+            st.markdown(f"### {job['exp_name']}")
+            for key, value in job.items():
+                st.write(f"**{key}**:", value)
+            st.divider()
+
     st.divider()
     st.header("Choose Your Workflow")
 

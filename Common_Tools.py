@@ -66,8 +66,10 @@ from PIL import ImageTk, Image
 import statistics
 from IPython.display import display
 import datetime
+from datetime import datetime, timedelta
 import pprint
 import pymongo
+from autogluon.common import space
 from pymongo import MongoClient
 import streamlit as st
 #np.random.seed(1000)
@@ -407,6 +409,32 @@ def generate_configuration_file_old(num_exp, project_name, test_set, exp_name, a
     
     return configuration_dic
     
+
+# Conversion function for AutoGluon space to JSON format
+def convert_to_json_compatible(hyperparams):
+    def serialize(val):
+        if isinstance(val, space.Int):
+            return {'type': 'int', 'min': val.lower, 'max': val.upper}
+        elif isinstance(val, space.Real):
+            return {'type': 'real', 'min': val.lower, 'max': val.upper}
+        elif isinstance(val, space.Categorical):
+            # Try multiple ways to get choices
+            if hasattr(val, 'categories'):
+                choices = list(val.categories)
+            else:
+                try:
+                    choices = list(val)
+                except Exception:
+                    raise ValueError(f"Cannot extract choices from Categorical: {val}")
+            return {'type': 'categorical', 'choices': choices}
+        else:
+            raise ValueError(f"Unsupported space type: {val}")
+
+    result = {}
+    for model, params in hyperparams.items():
+        result[model] = {key: serialize(value) for key, value in params.items()}
+    return result
+
 
 # find average values acorss all arrays, even if they're not in the same shape
 def average_values_across_lists(arrays):
@@ -1622,3 +1650,28 @@ def generate_shap_table(results_dictonary, project_name):
     grid_excel(table_name)
 
     return overall_table, table_name # return both the table and the file path for it
+
+# function to clean up the jobs database incase of "zombie jobs"
+def cleanup_stale_jobs(db):
+    cutoff = timedelta(minutes=5)
+
+    for job in db.jobs.find({"status": "running"}):
+        heartbeat = job.get("heartbeat")
+        job_id = job.get("job_id")
+
+        # Skip jobs without heartbeat
+        if not heartbeat:
+            continue
+
+        time_gap = datetime.now() - heartbeat
+
+        if time_gap >= cutoff:
+            db.jobs.update_one(
+                {"job_id": job_id},
+                {"$set": {
+                    "status": "Failed",
+                    "message": "Job crashed (heartbeat stopped).",
+                    "last_updated": datetime.now(),
+                    "expires_at": datetime.now() + timedelta(days=1)
+                }}
+            )
