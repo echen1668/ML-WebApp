@@ -268,6 +268,7 @@ def main():
     jobs = db.jobs
     db.jobs.create_index("expires_at", expireAfterSeconds=0)
     cleanup_stale_jobs(db) # clean up an 'zombie jobs'
+    current_job_names = db.jobs.distinct("exp_name", {"status": "running"}) # get all exp names currently being processes
     
     # create the results if it does not already exists
     results = db.results
@@ -309,6 +310,10 @@ def main():
     #st.write(exp_names)
     if project_name in exp_names:
         st.error("Experiment with that name already exists")
+        is_valid = True
+        configuration_dic = None
+    elif project_name in current_job_names:
+        st.error("Experiment with that name is currently in process")
         is_valid = True
         configuration_dic = None
     elif project_name is None or project_name=="" or project_name.isspace():
@@ -621,7 +626,7 @@ def main():
         p.start()
 
         st.success(f"Testing started (job {job_id})")
-
+        st.info("Check Jobs Status Tab on top of the page to see progress.")
         st.subheader("Jump to Visualizing Results") # redirect to the testing section
         st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
         st.write("or")

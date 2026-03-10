@@ -92,6 +92,7 @@ def main():
     jobs = db.jobs
     db.jobs.create_index("expires_at", expireAfterSeconds=0)
     cleanup_stale_jobs(db) # clean up an 'zombie jobs'
+    current_job_names = db.jobs.distinct("exp_name", {"status": "running", "job_type": "Testing (AutoGulon)"}) # get all exp names currently being processes
 
     # create the results if it does not already exists
     results = db.results
