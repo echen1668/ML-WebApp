@@ -23,6 +23,7 @@ Requirements (install using either pip or conda):
 - catboost
 - streamlit_cookies_manager
 - magic
+- bottleneck
 
 
 How to run this app:
