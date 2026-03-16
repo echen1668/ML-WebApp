@@ -414,7 +414,7 @@ def test_model(testing_setup):
     if 'Encoder' in keys_list:
         print("Encoder")
         encoder = outcome_dic['Encoder']
-        f.write("\nEncoder: %s"% encoder)
+        #f.write("\nEncoder: %s"% encoder)
         encoded_cols = outcome_dic['Encoded Columns']
 
         # Convert to string type (to avoid np.isnan on object)
@@ -845,7 +845,7 @@ def testing_worker(job_id, client_name, exp_name, test_set, test_set_name, data_
                     results.insert_one(result) # insert one dictonary
 
                 print(f"Testing '{exp_name}' completed successfully!")
-                update_status_when_done("Completed", "Training complete")
+                update_status_when_done("Completed", "Testing complete")
         else:
             print("Test Result of the same name already exists. Please change Test Set name.")
             #update_status("Failed", "Error Saving the test data.")
