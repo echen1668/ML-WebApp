@@ -186,6 +186,10 @@ def main():
         layout="wide"
     )
 
+    # initialize launch lock
+    if "launch_state" not in st.session_state:
+        st.session_state.launch_state = "idle"
+
     # back button to return to main page
     if st.button('Back'):
         st.switch_page("pages/Training_Models_Options.py")  # Redirect to the main back 
@@ -229,6 +233,7 @@ def main():
     jobs = db.jobs
     db.jobs.create_index("expires_at", expireAfterSeconds=0)
     cleanup_stale_jobs(db) # clean up an 'zombie jobs'
+    current_job_names = db.jobs.distinct("exp_name", {"status": "running"}) # get all exp names currently being processes
     # get all unique exp. names from results collection
     #exp_names = db.models.distinct("exp_name", {"type": "AutoGulon"})
     exp_names = db.models.distinct("exp_name")
@@ -403,6 +408,10 @@ def main():
         st.error("Experiment with that name already exists")
         is_valid = True
         configuration_dic = None
+    elif project_name in current_job_names:
+        st.error("Experiment with that name is currently in process")
+        is_valid = True
+        configuration_dic = None
     elif project_name is None or project_name=="" or project_name.isspace():
         st.info("Please enter a name for the experiment")
         is_valid = True
@@ -431,7 +440,7 @@ def main():
             #    main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
             #else: # Train Whole Set
                 #main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
-            main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
+            main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx', 'parquet'])
 
         with col2:
             completed_index_file = st.file_uploader("Upload **Completed** Index File", type=['xlsx'])
@@ -667,39 +676,72 @@ def main():
     # --- Step 4: Execute ---
     st.header("Step 4: Run Experiment")
 
-    if configuration_dic != None and st.button("Start Training", type="primary", use_container_width=True):
+    # start button
+    start_clicked = st.button(
+        "Start Training",
+        type="primary",
+        use_container_width=True,
+        disabled=(st.session_state.launch_state != "idle" or not configuration_dic is not None)
+    )
 
-        
-        job_id = str(uuid.uuid4())
+    if start_clicked:
+    #if configuration_dic != None and st.button("Start Training", type="primary", use_container_width=True):
 
-        #print(data_sets)
-        #print(project_name)
-        #print(configuration_dic)
-        #print(client_name)
-        #print(unique_value_threshold)
+        # immediately disable button
+        st.session_state.launch_state = "launching"
+        st.rerun()
 
-        p = Process(
-            target=train_and_generate_models,
-            args=(
-                job_id,
-                data_sets,
-                project_name,
-                configuration_dic,
-                client_name,
-                unique_value_threshold,
-            ),
-            daemon=False,   # ⚠️ REQUIRED
-        )
-        p.start()
+    # Launch worker after rerun
+    if st.session_state.launch_state == "launching":
 
-        st.session_state["job_id"] = job_id
-        st.success(f"Training started (job {job_id})")
+        try:
+            # final duplicate protection
+            existing_job = db.jobs.find_one({
+                "exp_name": project_name,
+                "status": {"$in": ["starting", "queued", "running"]}
+            })
 
-        #st.write(models_dictonary)
-        
+            if existing_job:
+                st.error("An experiment with this name is already running.")
+                st.session_state.launch_state = "idle"
+                st.stop()
 
-        st.subheader("Jump to Testing the Models") # redirect to the testing section
-        st.page_link("pages/Testing_AutoGulon_Models.py", label="Test Models", icon="🧪")
+            job_id = str(uuid.uuid4())
+
+            p = Process(
+                target=train_and_generate_models,
+                args=(
+                    job_id,
+                    data_sets,
+                    project_name,
+                    configuration_dic,
+                    client_name,
+                    unique_value_threshold,
+                ),
+                daemon=False,   # ⚠️ REQUIRED
+            )
+            p.start()
+
+            st.session_state["job_id"] = job_id
+            st.success(f"Training started (job {job_id})")
+
+            #st.write(models_dictonary)
+            
+
+            st.subheader("Jump to Testing the Models") # redirect to the testing section
+            st.page_link("pages/Testing_AutoGulon_Models.py", label="Test Models", icon="🧪")
+
+        except Exception as e:
+            st.error(f"Failed to start training job: {e}")
+
+            # cleanup failed starting job
+            db.jobs.delete_many({
+                "job_id": job_id
+            })
+
+        finally:
+            # re-enable button
+            st.session_state.launch_state = "idle"
 
 
 if __name__ == "__main__":

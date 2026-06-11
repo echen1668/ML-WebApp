@@ -120,6 +120,7 @@ algo_shortnames = { # short names for ML Algorithims
 }
 
 option_names = { # potenital values in put in the options section of the configuartion file
+    "threshold_type": "['youden', 'mcc', 'ji', 'f1']",
     "impute_strategy": "['mean', 'median', 'most_frequent', 'constant']",
     'cut threshold (range)': "(0.0 - 1.0)",
     "inf (how to handle inf values in data)": "['replace with null', 'replace with zero']",
@@ -213,6 +214,10 @@ def main():
         page_icon="🔥",
         layout="wide"
     )
+
+    # initialize launch lock
+    if "launch_state" not in st.session_state:
+        st.session_state.launch_state = "idle"
 
     data_sets = {}
 
@@ -350,10 +355,10 @@ def main():
             dataset_uploader_key = "main_dataset_uploader"
             
             if st.session_state.training_method in ["Train/Test Split", "Cross-Validation"]:
-                main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx'])
+                main_uploaded_file = st.file_uploader("Upload Dataset (CSV or Excel)", type=['csv', 'xlsx', 'parquet'])
                 #test_uploaded_file = None
             else: # Train Whole Set
-                main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx'], key=dataset_uploader_key)
+                main_uploaded_file = st.file_uploader("Upload Training Dataset", type=['csv', 'xlsx', 'parquet'], key=dataset_uploader_key)
                 #test_uploaded_file = st.file_uploader("Upload Testing Dataset", type=['csv', 'xlsx'], key="test_dataset", accept_multiple_files=True)
 
         with col2:
@@ -604,34 +609,90 @@ def main():
     # --- Step 4: Execute ---
     st.header("Step 4: Run Experiment")
 
-    if configuration_dic != None and ((configure_options == "Upload a file") or (configure_options == "User Customization" and len(algorithms) > 0)) and st.button("Start Training", type="primary", use_container_width=True):
+    
+    # validate if experiment can start
+    can_start = (
+        configuration_dic is not None
+        and (
+            configure_options == "Upload a file"
+            or (
+                configure_options == "User Customization"
+                and len(algorithms) > 0
+            )
+        )
+    )
+
+    # start button
+    start_clicked = st.button(
+        "Start Training",
+        type="primary",
+        use_container_width=True,
+        disabled=(st.session_state.launch_state != "idle" or not can_start)
+    )
+
+    if start_clicked:
+    #if configuration_dic != None and ((configure_options == "Upload a file") or (configure_options == "User Customization" and len(algorithms) > 0)) and st.button("Start Training", type="primary", use_container_width=True):
+        
+        # immediately disable button
+        st.session_state.launch_state = "launching"
+        st.rerun()
+
+    # Launch worker after rerun
+    if st.session_state.launch_state == "launching":
+        
         # Validation
         options = {key: val for key, val in st.session_state.items()}
 
-        job_id = str(uuid.uuid4())
-        # Call the main orchestration function
-        p = Process(
-            target=project,
-            args=(
-                job_id,
-                client_name,
-                configuration_dic,
-                data_sets,
-                unique_value_threshold, 
-                st.session_state.training_method,
-                project_name
-            ),
-            daemon=False,   # ⚠️ REQUIRED
-        )
-        p.start()
+        try:
+            # final duplicate protection
+            existing_job = db.jobs.find_one({
+                "exp_name": project_name,
+                "status": {"$in": ["starting", "queued", "running"]}
+            })
 
-        st.success(f"Testing started (job {job_id})")
-        st.info("Check Jobs Status Tab on top of the page to see progress.")
-        st.subheader("Jump to Visualizing Results") # redirect to the testing section
-        st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
-        st.write("or")
-        st.subheader("Jump to Testing the Models") # redirect to the testing section
-        st.page_link("pages/Testing_Native_Models.py", label="Test Models", icon="🧪")
+            if existing_job:
+                st.error("An experiment with this name is already running.")
+                st.session_state.launch_state = "idle"
+                st.stop()
+
+            # create unique job id
+            job_id = str(uuid.uuid4())
+
+            # Call the main orchestration function
+            p = Process(
+                target=project,
+                args=(
+                    job_id,
+                    client_name,
+                    configuration_dic,
+                    data_sets,
+                    unique_value_threshold, 
+                    st.session_state.training_method,
+                    project_name
+                ),
+                daemon=False,   # ⚠️ REQUIRED
+            )
+            p.start()
+
+            st.success(f"Testing started (job {job_id})")
+            st.info("Check Jobs Status Tab on top of the page to see progress.")
+            st.subheader("Jump to Visualizing Results") # redirect to the testing section
+            st.page_link("pages/Visualize_Options.py", label="Visualize Results", icon="📊")
+            st.write("or")
+            st.subheader("Jump to Testing the Models") # redirect to the testing section
+            st.page_link("pages/Testing_Native_Models.py", label="Test Models", icon="🧪")
+        
+        except Exception as e:
+            st.error(f"Failed to start training job: {e}")
+
+            # cleanup failed starting job
+            db.jobs.delete_many({
+                "job_id": job_id
+            })
+
+        finally:
+            # re-enable button
+            st.session_state.launch_state = "idle"
 
 
 
