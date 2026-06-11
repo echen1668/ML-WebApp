@@ -2516,7 +2516,7 @@ def test_and_save_results(model, X_test, y_test, threshold_type, algorithm_folde
     metric_dic['Predictions'] = predictions_test
     metric_dic['Probability Scores'] = probas_test.tolist()
             
-    print(metric_dic)
+    #print(metric_dic)
     #st.write(metric_dic)
     #p_test = res_test['P'].astype(float)
     #n_test = res_test['N'].astype(float)

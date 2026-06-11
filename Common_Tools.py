@@ -502,6 +502,8 @@ def resize_arrays_to_smallest(arrays):
 def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMissingRows='True', threshold=0.75, oneHotEncode='True', inf='replace with null', outliers='None', N=20000, QuantileTransformer='False'):
     if oneHotEncode == 'True':
         print("oneHotEncode")
+        print("Categorical Columns:")
+        print(categorical_cols)
         # convert all values in categorical columns into strings
         df[categorical_cols] = df[categorical_cols].astype(str)
         # Replace placeholders with proper NaN
@@ -511,7 +513,13 @@ def preprocess(df, input_cols, label_cols, numeric_cols, categorical_cols, cutMi
         encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
         encoder.fit(df[categorical_cols])
         encoded_cols = list(encoder.get_feature_names_out(categorical_cols))
-        df[encoded_cols] = encoder.transform(df[categorical_cols])
+
+        #df[encoded_cols] = encoder.transform(df[categorical_cols])
+        encoded_array = encoder.transform(df[categorical_cols])
+        encoded_df = pd.DataFrame(encoded_array, columns=encoded_cols, index=df.index)
+        df = pd.concat([df, encoded_df], axis=1)
+        df = df.drop(columns=categorical_cols)
+        df = df.copy()  # defragment
         input_cols = numeric_cols + encoded_cols
     else:
         encoder = None
@@ -831,6 +839,8 @@ def upload_data(filename):
     elif file_type == 'Microsoft Excel 2007+': # if file type is a .xlsx
         print(".xlsx")
         raw_df = pd.read_excel(filename)
+    elif filename.endswith('.parquet'): # if file is a .parquet
+        raw_df = pd.read_parquet(filename)
     else:
         print('.csv')
         raw_df = pd.read_csv(filename)
@@ -845,6 +855,8 @@ def load_data(filename, data):
         df = pd.read_excel(data)
     elif filename.endswith('.csv'):
         df = pd.read_csv(data)
+    elif filename.endswith('.parquet'):
+        df = pd.read_parquet(data)
     else:
         df = pd.read_excel(data)
 
@@ -857,6 +869,8 @@ def save_data(filename, data, save_path):
         data.to_excel(save_path, index=False)
     elif filename.endswith('.csv'):
         data.to_csv(save_path, index=False)
+    elif filename.endswith('.parquet'):
+        data.to_parquet(save_path, index=False)
     else:
         data.to_csv(save_path, index=False)
 

@@ -263,6 +263,8 @@ def project(job_id, client_name, configuration_dic, data_sets, unique_value_thre
             data_name = train_set["Name"][:-len('.xlsx')]
         elif train_set["Name"].endswith('.csv'):
             data_name = train_set["Name"][:-len('.csv')]
+        elif train_set["Name"].endswith('.parquet'):
+            data_name = train_set["Name"][:-len('.parquet')]
         else:
             data_name = train_set["Name"]
 
